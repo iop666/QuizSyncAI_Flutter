@@ -13,6 +13,9 @@
 </div>
 
 ---
+<img width="1672" height="940" alt="file_00000000d44c81fdba4bb49175bd47f3" src="https://github.com/user-attachments/assets/763eee58-5006-4331-a6fa-7178c53535d3" />
+
+---
 
 ## 这是什么
 
@@ -44,6 +47,9 @@
 
 ### 电脑端（Windows）
 
+<img width="1600" height="925" alt="mmexport1789841226554" src="https://github.com/user-attachments/assets/9cdc9118-71e8-41da-bfe9-8b657600472f" />
+
+
 | 能力 | 说明 |
 |---|---|
 | **全局热键截屏搜题** | 三个可自定义的热键：截屏识别 / 追加一页 / 结束多页识别；默认组合键可随时改，被别的软件占用会自动回退并给出提示 |
@@ -57,6 +63,11 @@
 | **内置服务端** | 电脑端自带局域网服务（HTTP + WebSocket），手机端通过配对码 / 二维码连上来，无需另装服务 |
 
 ### 手机端（Android）
+
+|示例1|示例2|示例3|
+|---|---|---|
+| <img width="1440" height="3200" alt="Screenshot_2026-09-20-02-05-45-894_com example quizsync_android_1_2026-09-21_09-03-02_998" src="https://github.com/user-attachments/assets/005b6c12-7ee2-49d8-ab16-2b7501e7a592" /> | <img width="1440" height="3200" alt="Screenshot_2026-09-20-02-14-43-423_com example quizsync_android_8_2026-09-21_09-03-03_019" src="https://github.com/user-attachments/assets/1f8a75fb-f4bc-4d80-bb2b-019d2e4fa893" /> | <img width="1440" height="3200" alt="Screenshot_2026-09-20-02-01-42-370_com example quizsync_android_0_2026-09-21_09-03-02_985" src="https://github.com/user-attachments/assets/2904e4a6-b484-4ca2-8138-72567d97e884" /> |
+
 
 | 能力 | 说明 |
 |---|---|
