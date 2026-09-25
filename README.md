@@ -329,6 +329,8 @@ docs/                     协议、数据模型、AI 契约、功能规格等设
 tools/                    一键构建与打包脚本
 ```
 
+> 独立的命令行服务端 **QuizSyncAI Server** 的源码在 [`flutter` 分支](https://github.com/iop666/QuizSyncAI/tree/flutter/server)。
+
 | 层 | 选型 |
 |---|---|
 | 界面 / 业务 | Flutter 3 · Dart 3 · Riverpod |
