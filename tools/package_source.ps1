@@ -6,6 +6,10 @@
 #     20,000,736 字节）必须**真的进 zip**，否则拿到源码的人 pub get 之后构建
 #     会因为缺字体资源失败。随包分发符合小米 MiSans FAQ（可嵌入软件随软件分发，
 #     但不得单独再分发字体文件本身）。
+#   * 用户要求「排除所有测试」—— 源码包里**不带任何测试**：任何一段路径叫
+#     test / integration_test / androidTest / test_driver 的目录，以及 *_test.dart /
+#     *_test.kt 文件一律剔除（README 里也写着「本源码包不含测试目录」）。
+#     没有 test 目录时 `tools/build_all.ps1` 会自动跳过测试步骤，构建照常。
 #   * 用户要求「除去正式版软件中一些构建中的介绍等信息」—— 源码包里**不带**
 #     内部构建过程记录：AGENTS.md、docs/DECISIONS.md、milestones.md、progress.md、
 #     DEV.md、optimization-plan.md、manual-test-android.md、agent-kickoff-prompt.md。
@@ -56,8 +60,17 @@ $excludeFiles = @(
   "docs/manual-test-android.md",
   "docs/agent-kickoff-prompt.md",
   "apps/android/android/local.properties",
-  "apps/android/android/key.properties"
+  "apps/android/android/key.properties",
+  # Flutter 工具生成的痕迹（它们本来就在 .gitignore 里，公开源码里也不该出现）：
+  "apps/android/.flutter-plugins-dependencies",
+  "apps/desktop/.flutter-plugins-dependencies",
+  "apps/android/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java",
+  # 纯 Dart 包的 lock 文件按惯例不入库（应用层的 lock 仍然保留）：
+  "packages/quizsync_core/pubspec.lock",
+  "packages/quizsync_ui/pubspec.lock"
 )
+# ---- 排除规则：**所有测试**（按路径段精确比较，不能按包含判断 —— "contest/" 里也含 "test/"） ----
+$excludeTestSegments = @("test", "integration_test", "androidtest", "test_driver")
 # ---- 排除规则：文件名模式 ----
 # `.env*` 是防护网缺口：现在仓库里没有 .env，但哪天有人建了，收集用的是
 # `Get-ChildItem -Force`，它会被原样打进公开源码包（M47）。
@@ -78,6 +91,11 @@ function Test-Excluded([string]$rel) {
     if ($lower.StartsWith($dir.ToLowerInvariant())) { return $true }
   }
   if ($excludeFiles -contains $rel.Replace("\", "/")) { return $true }
+  $segs = $lower.Split("/")
+  foreach ($t in $excludeTestSegments) {
+    if ($segs -contains $t) { return $true }
+  }
+  if ($lower.EndsWith("_test.dart") -or $lower.EndsWith("_test.kt")) { return $true }
   $name = Split-Path $rel -Leaf
   foreach ($pat in $excludePatterns) {
     if ($name -like $pat) { return $true }
@@ -167,12 +185,19 @@ try {
     Write-Host ("FAILED: 源码包里混进了构建产物/日志：" + (($junk | Select-Object -First 5) -join ", ")) -ForegroundColor Red
     exit 1
   }
+  $tests = @($names | Where-Object {
+      $_ -match '(?i)(^|/)(test|integration_test|androidTest|test_driver)/' -or
+      $_ -match '(?i)_test\.(dart|kt)$' })
+  if ($tests.Count -gt 0) {
+    Write-Host ("FAILED: 源码包里仍有测试：" + (($tests | Select-Object -First 5) -join ", ")) -ForegroundColor Red
+    exit 1
+  }
   $hasServer = @($names | Where-Object { $_ -like "server/*" }).Count -gt 0
   $size = (Get-Item $zipPath).Length / 1MB
   Write-Host ("source zip: " + $zipPath) -ForegroundColor Green
   Write-Host ("  条目 " + $names.Count + " 个 / " + [math]::Round($size, 1) + " MB（含 MiSans " + [math]::Round($font.Length / 1MB, 1) + " MB）")
   Write-Host ("  工程文档：SPEC / protocol / data-model / ai-contract；server 源码：" + $(if ($hasServer) { "已包含" } else { "未包含" }))
-  Write-Host "  （内部构建记录 AGENTS.md / DECISIONS / milestones / progress / DEV 等已按 M46 第 7 条剔除）"
+  Write-Host "  （测试目录与 *_test.dart 已全部剔除；内部构建记录 AGENTS.md / DECISIONS / milestones / progress / DEV 等一并剔除）"
 } finally {
   $verify.Dispose()
 }
