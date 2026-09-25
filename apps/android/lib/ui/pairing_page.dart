@@ -6,6 +6,7 @@ import 'package:quizsync_core/quizsync_core.dart';
 import 'package:quizsync_ui/quizsync_ui.dart';
 
 import '../services/capture_source.dart';
+import '../state/app_info.dart';
 import '../state/app_state.dart';
 import '../state/providers.dart';
 
@@ -104,7 +105,8 @@ class _PairingPageState extends ConsumerState<PairingPage> {
         deviceId: widget.app.repo.deviceId,
         deviceName: 'Android 手机',
         platform: 'android',
-        appVersion: '1.0.0',
+        // M46 第 4 条：报给主机的是**本机真实版本**（主机在「连接设备」里显示它）。
+        appVersion: kAppVersion,
       ));
       // protocol.md 3.1：ai_configured=false 只提示、不阻止配对。
       final pairing = PairingInfo(
@@ -225,7 +227,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                         Expanded(
                           child: Text(
                             '电脑和手机需要在同一个 Wi-Fi 下。\n'
-                            'Windows 端：设置 → 服务（Android 配对）→ 显示二维码与 6 位配对码。',
+                            'Windows 端：设置 → 连接设备 → 显示二维码与 6 位配对码。',
                             style: theme.textTheme.bodySmall
                                 ?.copyWith(height: 1.6),
                           ),
@@ -354,7 +356,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                 const SizedBox(height: AppSpacing.md),
                 SectionCard(
                   title: '方式三：手动输入',
-                  subtitle: '地址与配对码都在 Windows 端设置页的服务区。',
+                  subtitle: '地址与配对码都在 Windows 端设置页的「连接设备」里。',
                   icon: Icons.keyboard_outlined,
                   children: [
                     TextField(

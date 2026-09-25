@@ -20,6 +20,8 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'services/desktop_server.dart';
+import 'services/float_window.dart';
+import 'services/float_window_presenter.dart';
 import 'services/floating_ball.dart';
 import 'services/hotkey_service.dart';
 import 'services/hotkeys.dart';
@@ -282,18 +284,16 @@ Future<void> applyStoredUiScaleToWindow(double scale) async {
   }
 }
 
-/// 手机（安卓）发起识别时的窗口动作（用户反馈 12）：
-/// 把主窗口带到前台、回到主界面，并让主界面跳到这次识别的会话。
+/// 手机（安卓）发起识别时的窗口动作。
+///
+/// 用户反馈 12 原来是「把主窗口带到前台、回到主界面、跳到这次识别」；
+/// **M44 第 5 条改成静默**（用户原话：「在手机端进行识别时，windows 端应用修改为
+/// 静默不弹出」）：手机在搜题时 Windows 端**不弹窗、不抢焦点**。
+/// 只有主窗口**本来就在前台**（用户正看着它）时才顺手回到识别界面；
+/// 在托盘 / 后台时完全不动窗口，结果照样落库，用户下次打开就能看到。
 Future<void> _onRemoteTaskStarted(String sessionId) async {
   remoteTaskSession.value = sessionId;
-  try {
-    if (!await windowManager.isVisible()) {
-      await windowManager.show();
-    }
-    await windowManager.focus();
-  } catch (e) {
-    AppLogger.instance.warn('window', '手机任务唤起窗口失败：$e');
-  }
+  if (!appWindowIsForeground()) return;
   // 用户可能正停在设置页：先回到首层，识别界面才看得见。
   final nav = _navigatorKey.currentState;
   if (nav != null && nav.canPop()) {
@@ -350,32 +350,57 @@ Future<void> main() async {
   );
 
   // M4：内置服务端随应用启动（端口来自设置；占用自动探测 +1）。
+  //
+  // M32 用户需求 3：「连接设备」默认关闭，只有用户打开开关后才启动服务
+  // （启动监听会触发 Windows 防火墙授权弹窗，也就是需求里的「获取网络权限」）。
   final serverController = DesktopServerController();
   Future<String?> keyReader() => secureStore.read('ai_api_key');
-  await serverController.start(
-    repo: repo,
-    registry: {
-      'openai-compatible': OpenAiCompatibleProvider(),
-      'anthropic': AnthropicProvider(),
-      'gemini': GeminiProvider(),
-    },
-    aiSettingsReader: () => settings.ai,
-    keyReader: keyReader,
-    imageDir: imageDir,
-    preferredPort: settings.app.listenPort,
-    // 用户反馈 12：手机发起的识别 → Windows 端要「显示识别界面」；
-    // 本机截屏不在这里（走 AnalysisWorkflow），保持后台静默。
-    onTaskUpdate: (status, sessionId) {
-      if (status != 'analyzing' || sessionId == null) return;
-      unawaited(_onRemoteTaskStarted(sessionId));
-    },
-  );
+  Future<void> startServer() => serverController.start(
+        repo: repo,
+        registry: {
+          'openai-compatible': OpenAiCompatibleProvider(),
+          'anthropic': AnthropicProvider(),
+          'gemini': GeminiProvider(),
+        },
+        aiSettingsReader: () => settings.ai,
+        keyReader: keyReader,
+        imageDir: imageDir,
+        preferredPort: settings.app.listenPort,
+        // 用户反馈 12 + M44 第 5 条：手机发起的识别 → 只更新**全局状态信号**，
+        // 由外壳（`_DesktopShell`）转发给悬浮窗，并在窗口本来就是前台时才切界面。
+        onTaskUpdate: (status, sessionId) {
+          remoteTaskState.value = RemoteTaskSignal(status, sessionId);
+          if (status != 'analyzing' || sessionId == null) return;
+          unawaited(_onRemoteTaskStarted(sessionId));
+        },
+      );
+
+  /// 打开 / 关闭「连接设备」：真正启停局域网服务（设置页与托盘都走这里）。
+  Future<void> setConnectEnabled(bool enabled) async {
+    if (enabled) {
+      await startServer();
+      AppLogger.instance.info('server',
+          '用户打开「连接设备」：服务${serverController.server == null ? '启动失败（${serverController.error}）' : '已启动，端口 ${serverController.port}'}');
+    } else {
+      await serverController.stop();
+      AppLogger.instance.info('server', '用户关闭「连接设备」：服务已停止');
+    }
+  }
+
+  if (settings.app.connectEnabled) {
+    await startServer();
+    AppLogger.instance.info('server',
+        '连接设备（已保存为开启）：服务${serverController.server == null ? '启动失败（${serverController.error}）' : '已启动，端口 ${serverController.port}'}');
+  } else {
+    AppLogger.instance.info('server', '连接设备默认关闭：本次启动不监听任何端口');
+  }
   runApp(ProviderScope(
     overrides: [
       dbProvider.overrideWithValue(db),
       repoProvider.overrideWithValue(repo),
       settingsProvider.overrideWith((ref) => settings),
       serverControllerProvider.overrideWithValue(serverController),
+      connectToggleProvider.overrideWithValue(setConnectEnabled),
       // 不恢复上次的选中项：用户需求 8 要求每次打开都重新选一次合集。
       activeCollectionIdProvider.overrideWith((ref) => null),
       apiKeyReaderProvider.overrideWithValue(keyReader),
@@ -388,14 +413,19 @@ Future<void> main() async {
         }
       }),
     ],
-    child: _DesktopShell(imageDir: imageDir),
+    child: _DesktopShell(
+        imageDir: imageDir, connectToggle: setConnectEnabled),
   ));
 }
 
 /// 桌面外壳：托盘 + 全局热键 + 窗口生命周期（SPEC 2.4）。
 class _DesktopShell extends ConsumerStatefulWidget {
   final String imageDir;
-  const _DesktopShell({required this.imageDir});
+
+  /// 「连接设备」开关真正的启停（M32 用户需求 3）。
+  final Future<void> Function(bool) connectToggle;
+
+  const _DesktopShell({required this.imageDir, required this.connectToggle});
 
   @override
   ConsumerState<_DesktopShell> createState() => _DesktopShellState();
@@ -409,6 +439,11 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
   /// Windows 悬浮球（用户反馈 11）。
   late final FloatingBall _ball;
   bool _ballStarted = false;
+
+  /// Windows 悬浮窗（M32 用户需求 1）。
+  late final FloatWindow _floatWindow;
+  late final FloatWindowPresenter _floatPresenter;
+  bool _floatStarted = false;
 
   @override
   void initState() {
@@ -434,6 +469,34 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     );
     // 截屏时球必须一起藏起来（否则会被拍进发给 AI 的图里）。
     coordinator.capture.overlayHiders.add(_ball.setVisibleForCapture);
+    // 悬浮窗同理：它比球大得多，留在屏幕上一定会被拍进去。
+    _floatWindow = FloatWindow(
+      onAction: (id) => unawaited(_floatPresenter.handleAction(id)),
+      onMoveEnd: (x, y) => unawaited(_floatPresenter.onMoveEnd(x, y)),
+      onHover: (id) => _floatPresenter.setHovered(id),
+      onScroll: (n) => unawaited(_floatPresenter.scrollBy(n)),
+      // M42：极简模式的文本拖选与右键复制（窗口是 WS_EX_NOACTIVATE，
+      // 拿不到键盘消息，所以复制选区的入口挂在右键上）。
+      //
+      // ⚠ 必须包一层 lambda：直接写 `_floatPresenter.onSelectBegin` 会在**这一句**
+      // 就求值 `_floatPresenter`，而它要到下一句才赋值 → `LateInitializationError`
+      // （发布版探针实测：悬浮窗根本没建出来，日志里只有这一条崩溃）。
+      onSelectBegin: (x, y) => _floatPresenter.onSelectBegin(x, y),
+      onSelectUpdate: (x, y) => _floatPresenter.onSelectUpdate(x, y),
+      onSelectEnd: () => _floatPresenter.onSelectEnd(),
+      onCopySelected: () => unawaited(_floatPresenter.copySelected()),
+    );
+    coordinator.capture.overlayHiders.add(_floatWindow.setVisibleForCapture);
+    _floatPresenter = FloatWindowPresenter(
+      window: _floatWindow,
+      repo: ref.read(repoProvider),
+      coordinator: coordinator,
+      settings: () => ref.read(settingsProvider).app,
+      saveSettings: (v) => ref.read(settingsProvider).updateApp(v),
+      appIsDark: _appIsDark,
+      devicePixelRatioOf: _devicePixelRatio,
+      screenLogicalSizeOf: _screenLogicalSize,
+    );
     _setupHotkey().then((_) => _setupTray());
     _syncClipboard();
     _applyWindowTheme();
@@ -442,6 +505,20 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     // 悬浮球跟着「攒了几页 / 是否正在识别」换状态图（用户反馈 11）。
     coordinator.stagingListeners.add(_syncBallState);
     coordinator.busyListeners.add(_syncBallState);
+    // 悬浮窗也要跟着这两件事变：多页模式换底部按钮组、识别中显示最上层浮层。
+    coordinator.stagingListeners.add(_floatPresenter.onStagingChanged);
+    coordinator.busyListeners.add(_floatPresenter.onBusyChanged);
+    // 识别记录变化（新识别完成 / 删除）→ 悬浮窗刷新当前显示的那一次。
+    ref.listenManual(sessionsProvider, (prev, next) {
+      if (!next.hasValue) return;
+      _floatPresenter.setSessions(next.requireValue);
+    });
+    // 手机（安卓）发起的任务状态（M44 第 5 条）：悬浮窗要跟着显示「手机正在识别…」
+    // 并在识别完成时跳到新结果；服务端在 `main()` 里写这个全局信号。
+    remoteTaskState.addListener(_onRemoteTaskStateChanged);
+    // 监听是后挂的：先补一次当前值，别丢掉挂载之前就发生的那次任务。
+    final pendingRemote = remoteTaskState.value;
+    if (pendingRemote != null) _floatPresenter.onRemoteTask(pendingRemote);
     ref.listenManual(settingsProvider.select((s) => s.app.clipboardWatch),
         (prev, next) => _syncClipboard());
     // 悬浮球设置变化 → 立刻作用到窗口上（开关 / 大小 / 透明度 / 描边）。
@@ -460,6 +537,21 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
         unawaited(_applyBallSettings());
       },
     );
+    // 悬浮窗设置变化 → 立刻作用到窗口上（开关 / 置顶 / 透明度 / 比例 / 字号 /
+    // 锁定 / 拉伸 / 明暗 / 极简 / 归位）。同样必须走 `select`（M15 第 1 条的坑）。
+    ref.listenManual(
+      settingsProvider.select((s) => floatWindowSignature(s.app)),
+      (prev, next) {
+        if (prev == next) return;
+        unawaited(_applyFloatWindowSettings());
+      },
+    );
+    // 「连接设备」开关变化 → 真正启停局域网服务（M32 用户需求 3）。
+    ref.listenManual(settingsProvider.select((s) => s.app.connectEnabled),
+        (prev, next) {
+      if (prev == null || prev == next) return;
+      unawaited(widget.connectToggle(next));
+    });
     // 主题三态变化 → Windows 标题栏深浅跟着变（用户反馈 7）。
     ref.listenManual(settingsProvider.select((s) => s.app.theme),
         (prev, next) => _applyWindowTheme());
@@ -511,13 +603,19 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
   @override
   void dispose() {
     _hotkeyReloadTimer?.cancel();
+    remoteTaskState.removeListener(_onRemoteTaskStateChanged);
     // 退出前显式注销热键：后台线程会回到 VM 线程池被复用，不注销就会留下
     // 旧注册（见 `services/hotkey_service.dart` 的类注释）。
     unawaited(_hotkey.dispose());
     _ball.dispose();
+    _floatPresenter.dispose();
+    _floatWindow.dispose();
     coordinator.stagingListeners.remove(_setupTray);
     coordinator.stagingListeners.remove(_syncBallState);
+    coordinator.stagingListeners.remove(_floatPresenter.onStagingChanged);
     coordinator.busyListeners.remove(_syncBallState);
+    coordinator.busyListeners.remove(_floatPresenter.onBusyChanged);
+    coordinator.capture.overlayHiders.remove(_floatWindow.setVisibleForCapture);
     coordinator.dispose();
     trayManager.removeListener(this);
     windowManager.removeListener(this);
@@ -562,8 +660,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
   Future<void> _setupTray() async {
     final status = ref.read(hotkeyStatusProvider);
     final capture = status[HotkeySlot.capture]?.activeLabel ?? '无可用热键';
-    final append = status[HotkeySlot.append]?.activeLabel;
-    final finish = status[HotkeySlot.finish]?.activeLabel;
+    final multipage = status[HotkeySlot.multipage]?.activeLabel;
     try {
       await trayManager.setIcon(await _trayIconPath());
       hotkeyTrace('tray icon set ok');
@@ -576,19 +673,38 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
         ? '$kAppName — $capture 截屏搜题 · 已暂存 $staged 页'
         : '$kAppName — $capture 截屏搜题';
     await trayManager.setToolTip(tip);
+    final app = ref.read(settingsProvider).app;
     await trayManager.setContextMenu(Menu(items: [
-      MenuItem(key: 'capture', label: '截取屏幕 ($capture)'),
-      MenuItem(key: 'clipboard', label: '从剪贴板读取'),
-      MenuItem.separator(),
+      // M46 第 1 条：托盘上的「截屏识别」在攒着页时就是**结束多页**，
+      // 菜单文字跟着状态走，用户一眼知道这一下会发生什么。
       MenuItem(
-          key: 'append',
-          label: append == null ? '追加多页（热键被占用）' : '追加多页 ($append)'),
+          key: 'capture',
+          label: staged > 0
+              ? '结束多页并识别 ($capture)'
+              : '截取屏幕并识别 ($capture)'),
       MenuItem(
-          key: 'finish',
-          label: finish == null ? '结束多页（热键被占用）' : '结束多页并识别 ($finish)'),
+          key: 'multipage',
+          label: multipage == null
+              ? '多页识别（热键被占用）'
+              : '多页识别 ($multipage)'),
       MenuItem(
           key: 'clear-staging',
           label: '清空多页暂存区（${coordinator.stagedCount} 页）'),
+      MenuItem(key: 'clipboard', label: '从剪贴板读取'),
+      MenuItem.separator(),
+      // M32 用户需求 4 + M33 第 2 条：托盘右键菜单里的两个浮层开关，
+      // **文字跟着状态变**（显示 xxx / 隐藏 xxx）并且**每次状态变化都重建菜单**
+      // —— 否则点了开关菜单上的字还是旧的（用户报的就是这个）。
+      // 必须用 `MenuItem.checkbox`：tray_manager 只有 `type == 'checkbox'` 时
+      // 才会给 Win32 菜单加 MF_CHECKED，普通项的 checked 在 Windows 上不显示。
+      MenuItem.checkbox(
+          key: 'ball-toggle',
+          label: app.ballEnabled ? '隐藏悬浮球' : '显示悬浮球',
+          checked: app.ballEnabled),
+      MenuItem.checkbox(
+          key: 'float-window-toggle',
+          label: app.floatWindowEnabled ? '隐藏悬浮窗' : '显示悬浮窗',
+          checked: app.floatWindowEnabled),
       MenuItem.separator(),
       MenuItem(key: 'collection', label: '切换任务合集…'),
       MenuItem(key: 'show', label: '显示主窗口'),
@@ -619,8 +735,9 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     return path;
   }
 
-  /// 注册全部槽位（用户反馈 6：重写热键注册；三个槽位都能自定义，
-  /// 且自定义键支持物理键，失败时给出明确原因而不是静默回退）。
+  /// 注册全部槽位（M46 第 1 条：**只有两个**热键，默认 F8 / F9）。
+  ///
+  /// 自定义键支持物理键，失败时给出明确原因而不是静默回退。
   Future<void> _setupHotkey() async {
     final log = StringBuffer();
     final app = ref.read(settingsProvider).app;
@@ -637,16 +754,25 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     }
 
     addCustom(HotkeySlot.capture, app.hotkeyJson);
-    addCustom(HotkeySlot.append, app.appendHotkeyJson);
-    addCustom(HotkeySlot.finish, app.finishHotkeyJson);
+    addCustom(HotkeySlot.multipage, app.multipageHotkeyJson);
+
+    // 触发时先写一行日志（M46）：用户报「按了没反应」时，日志必须能回答
+    // 「到底有没有收到这个键、收到的是哪一个」——Server 一直这么做。
+    void Function() fire(HotkeySlot slot, void Function() action) => () {
+          hotkeyTrace('热键触发：${slot.title}（${_hotkey.activeLabel(slot.name) ?? '未注册'}）');
+          action();
+        };
 
     final paused = _hotkeyBlocked();
     final statuses = await registerAllHotkeys(
       registrar: _hotkey,
       handlers: {
-        HotkeySlot.capture: coordinator.captureAndAnalyze,
-        HotkeySlot.append: coordinator.appendPage,
-        HotkeySlot.finish: coordinator.finishMultiPage,
+        // 「截屏识别」自己会在攒着页时改判成「结束多页并上传」（见
+        // `CaptureCoordinator.captureAndAnalyze`），所以两个槽位各自只挂一个入口。
+        HotkeySlot.capture:
+            fire(HotkeySlot.capture, coordinator.captureAndAnalyze),
+        HotkeySlot.multipage:
+            fire(HotkeySlot.multipage, coordinator.multipageCapture),
       },
       custom: requests,
       log: log,
@@ -692,16 +818,23 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
   static String _ballSignature(AppSettings app) => ballSignature(app);
 
   /// 与安卓端一致的点击语义（Dart 侧决定，原生只上报手势）：
-  /// 已经攒了页 → 单击 = 收尾识别；否则 = 单图识别。长按 = 追加一页。
-  void _onBallTap() {
-    if (coordinator.hasStaged) {
-      unawaited(coordinator.finishMultiPage());
-    } else {
-      unawaited(coordinator.captureAndAnalyze());
-    }
-  }
+  /// 已经攒了页 → 单击 = 结束多页并识别；否则 = 单图识别。长按 = 继续攒页。
+  ///
+  /// M46 第 1 条：单击与「截屏识别」热键完全同义（`captureAndAnalyze` 自己会判
+  /// 攒页状态），不再需要在这里分叉。
+  void _onBallTap() => unawaited(coordinator.captureAndAnalyze());
 
-  void _onBallLongPress() => unawaited(coordinator.appendPage());
+  void _onBallLongPress() => unawaited(coordinator.multipageCapture());
+
+  /// 手机任务状态信号 → 悬浮窗（M44 第 5 条）。
+  ///
+  /// 手机端搜题时悬浮窗要显示「手机正在识别…」，识别完跳到新结果；以前悬浮窗
+  /// 完全不知道手机那边发生了什么（用户报「悬浮窗不会同步状态与跳转新界面」）。
+  void _onRemoteTaskStateChanged() {
+    final signal = remoteTaskState.value;
+    if (signal == null) return;
+    _floatPresenter.onRemoteTask(signal);
+  }
 
   /// 状态图：识别中 > 多页模式 > 待识别。
   void _syncBallState() {
@@ -727,6 +860,84 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     } else {
       _ball.hide();
     }
+    // M33 第 2 条：托盘菜单的文字/勾选要跟着状态走（设置页改了也要刷新）。
+    await _setupTray();
+  }
+
+  // ------------------------------------------------------------------
+  // Windows 悬浮窗（M32 用户需求 1）
+  // ------------------------------------------------------------------
+
+  /// 应用现在的明暗（悬浮窗选「跟随软件设置」时用它）。
+  bool _appIsDark() => switch (ref.read(settingsProvider).app.theme) {
+        ThemeMode2.system =>
+          WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+              Brightness.dark,
+        ThemeMode2.light => false,
+        ThemeMode2.dark => true,
+      };
+
+  double _devicePixelRatio() {
+    try {
+      return WidgetsBinding.instance.platformDispatcher.views.first
+          .devicePixelRatio;
+    } catch (_) {
+      return 1;
+    }
+  }
+
+  /// 屏幕的**逻辑**尺寸（物理像素 / DPR）：悬浮窗默认位置按它算。
+  Size _screenLogicalSize() {
+    try {
+      final view = WidgetsBinding.instance.platformDispatcher.views.first;
+      final display = view.display;
+      return Size(display.size.width / view.devicePixelRatio,
+          display.size.height / view.devicePixelRatio);
+    } catch (_) {
+      return const Size(1280, 720);
+    }
+  }
+
+  /// 悬浮窗开 / 关 / 换外观（用户需求 1.12：默认关闭，打开后记住状态）。
+  Future<void> _applyFloatWindowSettings() async {
+    final app = ref.read(settingsProvider).app;
+    // M33 第 2 条：托盘菜单的文字/勾选要跟着状态走。
+    await _setupTray();
+    if (!app.floatWindowEnabled) {
+      _floatPresenter.hide();
+      return;
+    }
+    // 已经开着（窗口存在且可见）→ 只是重画；否则新建并显示。
+    // 注意「关掉再打开」也要能回来：`_floatStarted` 为 true 但窗口已隐藏时
+    // 必须重新 show()，不能只走 applySettings()（那条路在隐藏时直接返回）。
+    if (_floatStarted && _floatPresenter.isVisible) {
+      await _floatPresenter.applySettings();
+      return;
+    }
+    _floatStarted = true;
+    _floatPresenter.setSessions(
+        ref.read(sessionsProvider).valueOrNull ?? const <Session>[]);
+    await _floatPresenter.show();
+  }
+
+  /// 托盘 / 设置页都用的「切换悬浮球开关」。
+  ///
+  /// 切完立刻重建托盘菜单：M33 第 2 条要求菜单文字/勾选**跟着状态变**，
+  /// 而 tray_manager 不会自动刷新，必须重新 `setContextMenu`。
+  Future<void> _toggleBall(bool value) async {
+    final app = ref.read(settingsProvider).app;
+    await ref
+        .read(settingsProvider)
+        .updateApp(app.copyWith(ballEnabled: value));
+    await _setupTray();
+  }
+
+  Future<void> _toggleFloatWindow(bool value) async {
+    final app = ref.read(settingsProvider).app;
+    await ref
+        .read(settingsProvider)
+        .updateApp(app.copyWith(floatWindowEnabled: value));
+    await _setupTray();
   }
 
   Future<void> _showWindow() async {
@@ -764,14 +975,18 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
       case 'clipboard':
         await coordinator.analyzeClipboardNow();
         break;
-      case 'append':
-        await coordinator.appendPage();
-        break;
-      case 'finish':
-        await coordinator.finishMultiPage();
+      case 'multipage':
+        await coordinator.multipageCapture();
         break;
       case 'clear-staging':
         coordinator.clearStaging();
+        break;
+      case 'ball-toggle':
+        await _toggleBall(!ref.read(settingsProvider).app.ballEnabled);
+        break;
+      case 'float-window-toggle':
+        await _toggleFloatWindow(
+            !ref.read(settingsProvider).app.floatWindowEnabled);
         break;
       case 'collection':
         await _showWindow();
@@ -804,6 +1019,17 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
       _ballStarted = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_applyBallSettings());
+      });
+    }
+    // 悬浮窗同理（用户需求 1.12：默认关闭，所以打开开关才会真的建窗口）。
+    if (!_floatStarted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _floatPresenter
+            .setSessions(ref.read(sessionsProvider).valueOrNull ?? const []);
+        if (ref.read(settingsProvider).app.floatWindowEnabled) {
+          unawaited(_applyFloatWindowSettings());
+        }
       });
     }
     return QuizSyncApp(coordinator: coordinator, navigatorKey: _navigatorKey);

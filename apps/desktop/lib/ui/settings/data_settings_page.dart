@@ -160,7 +160,7 @@ class _DataSettingsPageState extends ConsumerState<DataSettingsPage> {
             SettingsRow(
               title: '应用数据目录',
               subtitle: dataRoot,
-              info: '用户反馈 10：应用产生的图片、数据库、备份、导出、日志都放在'
+              info: '应用产生的图片、数据库、备份、导出、日志都放在'
                   '**软件所在目录**下的 userdata\\ 里（便携版拷走整个文件夹 = 数据一起走；'
                   '不叫 data 是因为那个目录属于程序自己的引擎文件）。'
                   '安装到 Program Files 这类只读位置时会自动退回系统数据目录，'

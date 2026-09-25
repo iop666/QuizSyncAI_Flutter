@@ -76,9 +76,10 @@ class _RecognitionSettingsPageState
           children: [
             SettingsField(
               title: '多页识别页数上限',
-              subtitle: '达到上限会自动上传本次全部页面；硬上限 $kHardMaxPagesPerTask 页',
-              info: '攒页方式：按「添加页面」热键逐页追加（热键被占用时用托盘菜单），'
-                  '最后按「结束多页识别」一次上传，AI 会把跨页的题干与选项合并成同一道题。',
+              subtitle: '抓满上限会自动上传本次全部页面；硬上限 $kHardMaxPagesPerTask 页',
+              info: '攒页方式：按「多页模式」热键逐页追加（热键被占用时用托盘菜单），'
+                  '抓满上限自动上传识别；没满就按「截屏识别」热键结束多页并一次上传，'
+                  'AI 会把跨页的题干与选项合并成同一道题。',
               maxWidth: 520,
               child: Row(
                 children: [

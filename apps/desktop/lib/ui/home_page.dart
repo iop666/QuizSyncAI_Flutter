@@ -11,12 +11,13 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 import '../services/shell_open.dart';
 import '../state/analysis_workflow.dart' show WorkflowResult;
 import '../state/app_scope.dart';
-import '../state/capture_coordinator.dart' show decodeImage, CaptureCoordinator;
+import '../state/capture_coordinator.dart'
+    show decodeImage, imageFileReader, loadSessionFirstImage, CaptureCoordinator;
 import '../state/collections.dart';
 import 'collection_export.dart';
 import 'collection_picker_page.dart';
 import 'crop_retry_dialog.dart';
-import 'privacy_dialog.dart';
+
 import 'settings_page.dart';
 
 /// 主窗口（SPEC 2.2）：左侧会话列表、右侧当前会话内容、底部导航。
@@ -289,11 +290,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     // 多页会话要读回**全部**页：缺少任何一页时 retrySession 会抛 StateError，
     // 这里必须把它的原话显示出来（不能吞掉，否则用户只看到「没反应」）。
     final imageDir = '${ref.read(dataRootProvider)}/images';
-    workflow.readImageFile = (hash) async {
-      final file = File('$imageDir/$hash.jpg');
-      if (!await file.exists()) return null;
-      return file.readAsBytes();
-    };
+    workflow.readImageFile = imageFileReader(imageDir);
     final WorkflowResult result;
     try {
       result = await workflow.retrySession(
@@ -367,16 +364,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (!result.ok && result.errorMessage != null) _toast(result.errorMessage!);
   }
 
-  Future<Uint8List?> _loadSessionImage(Session session) async {
-    final meta = await ref.read(repoProvider).getImage(session.imageHash);
-    final path = meta?.localPath;
-    if (path == null) return null;
-    try {
-      return Uint8List.fromList(await File(path).readAsBytes());
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<Uint8List?> _loadSessionImage(Session session) =>
+      loadSessionFirstImage(ref.read(repoProvider), session);
 
   void _toast(String message) {
     if (!mounted) return;
@@ -493,17 +482,18 @@ class _StagingBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final limit = ref.watch(settingsProvider).app.multiPageLimit;
-    final append = ref.watch(activeAppendHotkeyProvider);
-    final finish = ref.watch(activeFinishHotkeyProvider);
+    final multipage = ref.watch(activeMultipageHotkeyProvider);
+    final finish = ref.watch(activeHotkeyProvider);
     final full = limit > 0 && stagedCount >= limit;
 
     final String hint;
     if (stagedCount == 0) {
-      hint = '按「追加页」热键开始攒页；到 $limit 页会自动上传';
+      hint = '按「多页模式」热键开始攒页；抓满 $limit 张会自动上传识别';
     } else if (full) {
-      hint = '已到 $limit 页上限，会自动上传本次全部页面';
+      hint = '已抓满 $limit 张，正在自动上传识别；也可以按「截屏识别」立刻上传';
     } else {
-      hint = '继续按「追加页」加页；到 $limit 页会自动上传';
+      hint = '继续按「多页模式」加页；抓满 $limit 张自动上传，'
+          '或按「截屏识别」结束多页立刻上传';
     }
 
     final active = stagedCount > 0;
@@ -545,7 +535,7 @@ class _StagingBar extends ConsumerWidget {
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
-          _HotkeyChip(label: '追加页', value: append),
+          _HotkeyChip(label: '多页模式', value: multipage),
           _HotkeyChip(label: '结束多页', value: finish),
           TextButton.icon(
             key: const ValueKey('clear-staging'),
@@ -1613,21 +1603,6 @@ class _FailedPaneState extends State<_FailedPane> {
       ),
     );
   }
-}
-
-/// 首次启动隐私告知（SPEC §10：确认后才允许第一次分析）。
-Future<bool> ensurePrivacyAcknowledged(BuildContext context, WidgetRef ref) async {
-  final settings = ref.read(settingsProvider);
-  if (settings.privacyAcknowledged) return true;
-  final ok = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const PrivacyDialog(),
-  );
-  if (ok == true) {
-    await settings.acknowledgePrivacy();
-  }
-  return ok == true;
 }
 
 /// 数据根目录 provider（main 注入；与 db/图片/备份目录同根）。

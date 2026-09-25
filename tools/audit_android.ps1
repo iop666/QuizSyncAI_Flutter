@@ -1,8 +1,8 @@
 ﻿# M24（优化轮 · 安卓交付物安全审计）：本地、只读、零第三方依赖。
 #
-# 为什么自己写，而不用市面上那两个现成工具（选型阶段已否决）：
+# 为什么自己写，而不用「优化方案」阶段二列的那两个工具（已否决，见 docs/optimization-plan.md）：
 #   * flutterguard_cli 需要注册账号拿 API Key，并把 APK **上传到第三方 SaaS** ——
-#     违反项目守则「不要装需要注册账号的软件」，也与本项目「数据只在本机」的姿态冲突；
+#     违反 AGENTS.md §0.6「不要装需要注册账号的软件」，也与本项目「数据只在本机」的姿态冲突；
 #   * flutter_build_guard 的 --fix 会关掉 usesCleartextTraffic（它的 cleartext 规则是 high），
 #     直接把局域网搜题打断 —— 而明文 HTTP 是 SPEC §10 明确接受的既定前提。
 # 本脚本只用本机已有的 Android SDK 工具：aapt2（读合并后的 manifest）+ apksigner（验签）。
@@ -12,18 +12,36 @@
 #   powershell -File tools\audit_android.ps1 -ApkPath <某个.apk>   # 只审计一个（开发中用）
 param(
   [string]$OutDir = "dist",
-  [string]$Version = "1.0.0",
-  [string]$SdkDir = $(if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT }
-    elseif ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "" }),
+  # M47：留空时从 apps\android\pubspec.yaml 读（与打包脚本同一个来源）。
+  [string]$Version = "",
+  [string]$SdkDir = "D:\Windows\Apps\Android\Sdk",
   [string]$BuildToolsVersion = "36.0.0",
   [string]$ApkPath = ""
 )
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-# 发布源码不写死 SDK 路径：优先 -SdkDir，其次 ANDROID_SDK_ROOT / ANDROID_HOME。
-if (-not $SdkDir) {
-  Write-Host "未指定 Android SDK：请用 -SdkDir 传入，或设置环境变量 ANDROID_SDK_ROOT / ANDROID_HOME。" -ForegroundColor Red
-  exit 2
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+  $pubspec = Join-Path $RepoRoot "apps\android\pubspec.yaml"
+  $m = [regex]::Match((Get-Content -Raw -Encoding UTF8 $pubspec), "(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)")
+  if (-not $m.Success) { Write-Host "FAILED: 读不出 apps\android\pubspec.yaml 的版本号" -ForegroundColor Red; exit 1 }
+  $Version = $m.Groups[1].Value
+}
+
+# M47：SDK 路径先看参数，再看 ANDROID_HOME / ANDROID_SDK_ROOT，最后才用本机默认位置
+# —— 脚本不该只认作者机器的绝对路径。
+if ([string]::IsNullOrWhiteSpace($SdkDir) -or -not (Test-Path $SdkDir)) {
+  foreach ($envName in @("ANDROID_HOME", "ANDROID_SDK_ROOT")) {
+    $candidate = [Environment]::GetEnvironmentVariable($envName)
+    if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path $candidate)) {
+      $SdkDir = $candidate
+      break
+    }
+  }
+}
+if (-not (Test-Path $SdkDir)) {
+  Write-Host ("FAILED: 找不到 Android SDK（参数、ANDROID_HOME、ANDROID_SDK_ROOT 都没有）：" + $SdkDir) -ForegroundColor Red
+  exit 1
 }
 $aapt2 = Join-Path $SdkDir ("build-tools\" + $BuildToolsVersion + "\aapt2.exe")
 $apksigner = Join-Path $SdkDir ("build-tools\" + $BuildToolsVersion + "\apksigner.bat")

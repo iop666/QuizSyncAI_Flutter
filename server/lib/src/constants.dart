@@ -7,8 +7,16 @@ library;
 /// 产品名（CLI 标题、配对二维码、关于信息都用它）。
 const String kServerProductName = 'QuizSyncAI Server';
 
-/// 独立版本线：功能冻结在 1.0.0，不跟随主项目。
-const String kServerVersion = '1.0.0';
+/// 独立版本线：功能冻结在 1.0.x，不跟随主项目。
+///
+/// - `1.0.0`：M45 发布的功能冻结版（截图 → AI → 手机）。
+/// - `1.0.1`：M47 的**补丁版** —— 不新增任何能力，只把主项目那轮代码审查里
+///   同样适用于 Server 的四条加固搬过来（上传边读边限长、上传限流 30 次/分、
+///   snapshot 分页、任务忙时回 429 而不是假排队），另加 op 归属校验、
+///   426 版本协商、`already_paired` 409 与 README 的明文 Key 说明。
+///   按 README 的约定「要改就发 Server v2」—— 那是说**功能**；这里是同一冻结
+///   功能线上的缺陷修复，所以只顶补丁位（v2 留给将来真的要加功能的时候）。
+const String kServerVersion = '1.0.1';
 
 /// 协议版本（protocol.md；Android 端只认这个）。
 const int kProtocolVersion = 1;

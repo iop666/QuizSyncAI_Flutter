@@ -291,18 +291,24 @@ class HostStatusPoller {
     final raw = view.session;
     final sessionId = view.sessionId;
     if (raw == null || sessionId == null || sessionId.isEmpty) return;
-    if (_deliveredResult == sessionId) return;
+
+    // M47：闩锁记的是「会话 + 结果版本」指纹，不再是裸的 session_id ——
+    // 只记 session_id 时，同一会话的**新**结果（主机重新生成、或同图复用后再跑一次）
+    // 会被永久吞掉，而 `protocol.md` 3.4.1 要求的判据是「这条结果已经在界面上」。
+    final version = '${raw['updated_at'] ?? ''}|${raw['question_count'] ?? ''}';
+    final fingerprint = '$sessionId|$version';
+    if (_deliveredResult == fingerprint) return;
 
     // 之前这里按「本地库里已经有同版本结果」就跳过。那个条件太宽了（M17 第 4 条）：
     // 主机**同图复用**会复用同一个 session_id，手机本地早就有这条记录，但界面还
     // 停在上一轮 —— 于是轮询的 done 被静默丢掉，用户看到的就是「当前任务不刷新」。
     // 真正该问的是「这条结果**已经在界面上**了吗」，也就是界面签名一致。
     if (uiSignature?.call() == signatureOf(view)) {
-      _deliveredResult = sessionId;
+      _deliveredResult = fingerprint;
       return;
     }
 
-    _deliveredResult = sessionId;
+    _deliveredResult = fingerprint;
     await updates.handle({
       'type': 'task_result',
       'task_id': view.taskId ?? sessionId,

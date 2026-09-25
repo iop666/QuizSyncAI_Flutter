@@ -9,16 +9,16 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 import '../../services/hotkeys.dart';
 import '../../state/app_scope.dart';
 
-/// 热键设置（用户反馈 6：整个热键模块与设置页重写）。
+/// 热键设置（用户反馈 6：整个热键模块与设置页重写；M46 第 1 条改成**两个**热键）。
 ///
-/// 三个用途各自一个模块块：显示**实际生效**的组合键（键帽）、注册状态与原因，
+/// 两个用途各自一个模块块：显示**实际生效**的组合键（键帽）、注册状态与原因，
 /// 可以逐个自定义或恢复默认。
 ///
 /// M12（用户反馈 5/10）：
 /// - 进入本页时**暂停**全部全局热键，离开时恢复 —— 否则在页面上按组合键
 ///   会真的触发一次截屏识别；
 /// - 去掉「重新注册全部热键」按钮（连点会触发旧实现的串键 bug），
-///   改成「恢复默认热键」：一键清掉三个自定义组合键。
+///   改成「恢复默认热键」：一键清掉自定义组合键。
 ///
 /// M31 重写暂停的实现：本页只负责「登记自己正在挂载」，**不再注销热键**。
 /// 是否吞掉一次触发由 `_DesktopShell._hotkeyBlocked()` 在触发那一刻判断
@@ -64,14 +64,14 @@ class _HotkeySettingsPageState extends ConsumerState<HotkeySettingsPage> {
   Widget build(BuildContext context) {
     final statuses = ref.watch(hotkeyStatusProvider);
     final app = ref.watch(settingsProvider).app;
-    final custom = app.hotkeyJson != null ||
-        app.appendHotkeyJson != null ||
-        app.finishHotkeyJson != null;
+    final custom =
+        app.hotkeyJson != null || app.multipageHotkeyJson != null;
 
     return SettingsSection(
       title: '热键设置',
-      description: '三个用途各自注册一个全局热键，在后台随时可按；'
-          '被其他程序占用时会自动换到下一个可用候选键。',
+      description: '两个用途各自注册一个全局热键，默认是 **F8**（截屏识别）与 '
+          '**F9**（多页模式），在后台随时可按；被其他程序占用时会自动换到下一个'
+          '可用候选键。',
       children: [
         // 用户反馈 5 + M30 + M31：本页会吞掉热键触发，必须让用户知道（否则会以为热键坏了）。
         // 注意「暂停」的准确范围（M31 重写后）：只在本页**停在最前面**时忽略，
@@ -81,8 +81,10 @@ class _HotkeySettingsPageState extends ConsumerState<HotkeySettingsPage> {
               '离开本页、或切到别的程序，热键立刻恢复。',
         ),
         SettingsGroup(
-          title: '截图识别',
+          title: '截屏识别',
           icon: Icons.crop_free,
+          description: '不在多页模式时＝截一张屏立刻识别；正在多页模式里时＝'
+              '结束多页，把已抓的图一起上传识别。',
           showDividers: false,
           children: [
             _SlotRow(
@@ -95,25 +97,18 @@ class _HotkeySettingsPageState extends ConsumerState<HotkeySettingsPage> {
           ],
         ),
         SettingsGroup(
-          title: '多页识别',
+          title: '多页模式',
           icon: Icons.layers_outlined,
-          description: '一道题跨了几屏时：先按「添加页面」逐页攒起来，再按「结束」一次识别。',
+          description: '一道题跨了几屏时：按第一下进入多页并抓第一张，继续按追加；'
+              '抓满 6 张自动上传识别，不满就按「截屏识别」结束并上传。',
           showDividers: false,
           children: [
             _SlotRow(
-              slot: HotkeySlot.append,
-              status: statuses[HotkeySlot.append],
-              customJson: app.appendHotkeyJson,
-              onEdit: (hk) => _saveCustom(HotkeySlot.append, hk),
-              onClear: () => _clear(HotkeySlot.append),
-            ),
-            const SizedBox(height: SettingsGap.s8),
-            _SlotRow(
-              slot: HotkeySlot.finish,
-              status: statuses[HotkeySlot.finish],
-              customJson: app.finishHotkeyJson,
-              onEdit: (hk) => _saveCustom(HotkeySlot.finish, hk),
-              onClear: () => _clear(HotkeySlot.finish),
+              slot: HotkeySlot.multipage,
+              status: statuses[HotkeySlot.multipage],
+              customJson: app.multipageHotkeyJson,
+              onEdit: (hk) => _saveCustom(HotkeySlot.multipage, hk),
+              onClear: () => _clear(HotkeySlot.multipage),
             ),
           ],
         ),
@@ -124,10 +119,9 @@ class _HotkeySettingsPageState extends ConsumerState<HotkeySettingsPage> {
             SettingsRow(
               key: const ValueKey('settings-hotkey-defaults-row'),
               title: '恢复默认热键',
-              subtitle: '把三个用途都改回默认候选键：'
-                  '截图 Ctrl+Alt+Q · 添加页面 Ctrl+Alt+A · 结束 Ctrl+Alt+S',
+              subtitle: '把两个用途都改回默认键：截屏识别 F8 · 多页模式 F9',
               info: '会清掉你自己设过的组合键（包括被别的程序占用而自动回退的那些），'
-                  '然后立刻按默认候选键重新注册。原来的「重新注册全部热键」按钮'
+                  '然后立刻按默认键重新注册。原来的「重新注册全部热键」按钮'
                   '连点多次会留下重复注册，所以改成这个一键复原。',
               trailing: OutlinedButton.icon(
                 key: const ValueKey('settings-hotkey-restore-defaults'),
@@ -138,7 +132,7 @@ class _HotkeySettingsPageState extends ConsumerState<HotkeySettingsPage> {
             ),
             const SettingsRow(
               title: '托盘菜单',
-              subtitle: '热键被占用时，托盘右键菜单里有同样的三项操作',
+              subtitle: '热键被占用时，托盘右键菜单里有同样的两项操作',
             ),
           ],
         ),
@@ -150,13 +144,12 @@ class _HotkeySettingsPageState extends ConsumerState<HotkeySettingsPage> {
     );
   }
 
-  /// 一键恢复默认：清掉三个槽位的自定义键，注册逻辑随即按候选键重来。
+  /// 一键恢复默认：清掉两个槽位的自定义键，注册逻辑随即按默认键重来。
   Future<void> _restoreDefaults() async {
     final s = ref.read(settingsProvider);
     await s.updateApp(s.app.copyWith(
       clearHotkey: true,
-      clearAppendHotkey: true,
-      clearFinishHotkey: true,
+      clearMultipageHotkey: true,
     ));
   }
 
@@ -165,8 +158,7 @@ class _HotkeySettingsPageState extends ConsumerState<HotkeySettingsPage> {
     final json = jsonEncode(hk.toJson());
     await s.updateApp(switch (slot) {
       HotkeySlot.capture => s.app.copyWith(hotkeyJson: json),
-      HotkeySlot.append => s.app.copyWith(appendHotkeyJson: json),
-      HotkeySlot.finish => s.app.copyWith(finishHotkeyJson: json),
+      HotkeySlot.multipage => s.app.copyWith(multipageHotkeyJson: json),
     });
   }
 
@@ -174,8 +166,7 @@ class _HotkeySettingsPageState extends ConsumerState<HotkeySettingsPage> {
     final s = ref.read(settingsProvider);
     await s.updateApp(switch (slot) {
       HotkeySlot.capture => s.app.copyWith(clearHotkey: true),
-      HotkeySlot.append => s.app.copyWith(clearAppendHotkey: true),
-      HotkeySlot.finish => s.app.copyWith(clearFinishHotkey: true),
+      HotkeySlot.multipage => s.app.copyWith(clearMultipageHotkey: true),
     });
   }
 }
@@ -210,8 +201,7 @@ class _SlotRow extends ConsumerWidget {
           key: ValueKey('settings-hotkey-${slot.name}'),
           title: switch (slot) {
             HotkeySlot.capture => '截取屏幕并识别',
-            HotkeySlot.append => '添加页面',
-            HotkeySlot.finish => '结束多页识别',
+            HotkeySlot.multipage => '多页模式',
           },
           subtitle: status == null
               ? '正在注册…'

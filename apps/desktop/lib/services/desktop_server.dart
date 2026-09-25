@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:quizsync_core/quizsync_core.dart';
 
+import '../state/app_info.dart' show kAppVersion;
 import '../state/settings.dart' show AiUiSettings;
 
 /// 桌面端内置服务端的持有者（M4）。
@@ -12,6 +13,9 @@ class DesktopServerController {
   String? error;
 
   bool get isRunning => server != null;
+
+  /// 在线的设备数：WS 连着的 + 最近有过已认证请求的（手机轮询走 HTTP）。
+  int get activeDeviceCount => server?.activeDeviceCount ?? 0;
 
   Future<void> start({
     required CoreRepository repo,
@@ -56,7 +60,11 @@ class DesktopServerController {
       executor: executor,
       deviceId: repo.deviceId,
       serverName: host,
-      options: QuizSyncServerOptions(preferredPort: preferredPort),
+      options: QuizSyncServerOptions(
+          preferredPort: preferredPort,
+          // M46 第 4 条：主机自报的版本跟着产品版本走（「关于」页、`/info` 的
+          // `app_version`、响应头 `X-QS-Server-Version` 三处同源）。
+          appVersion: kAppVersion),
     );
     // 用户反馈 12：手机提交的任务也要让 Windows 端「显示识别界面」。
     s.onTaskUpdateHook = onTaskUpdate;

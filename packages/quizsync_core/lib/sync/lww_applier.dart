@@ -39,6 +39,29 @@ class LwwApplier {
             currentRow['updated_by']?.toString() ?? '',
           );
 
+    // 删除 vs 修改的收敛（`data-model.md` 2.9 场景 7：**不得出现一端删一端在的
+    // 永久分叉**）。规则：**lamport 大者赢，输的一方跟着改**。
+    //
+    // 删除是「往 `deleted_at` 写一个时间戳」，所以它天然参与字段级 LWW；问题在于
+    // 输掉的那一端不会自己回头：A 离线删掉某条（lamport 低），B 同时改了它
+    // （lamport 高）——B 按 LWW 拒掉删除（修改赢），而 A 端自己的墓碑**永远不会**
+    // 被清掉，两端就此永久分叉。这里补上另一半：本行有墓碑、来的是**不含**
+    // `deleted_at` 的 upsert、且这次写入比墓碑更新 → 墓碑作废（删除输，删除方
+    // 跟着复活）。反过来删除的 lamport 更高时，收到删除的一端照旧落墓碑，两端
+    // 都删 —— 两个方向都会收敛到同一个状态。
+    if (currentRow != null && currentRow['deleted_at'] != null) {
+      final tomb = newClocks['deleted_at'] ?? baseline;
+      final incomingIsDelete =
+          op.opType == SyncOpType.delete || op.fields.containsKey('deleted_at');
+      if (!incomingIsDelete &&
+          (tomb == null ||
+              compareVersions(op.lamport, op.deviceId, tomb.l, tomb.d) > 0)) {
+        currentRow['deleted_at'] = null;
+        newClocks['deleted_at'] = FieldClock(op.lamport, op.deviceId);
+        applied.add('deleted_at');
+      }
+    }
+
     for (final entry in op.fields.entries) {
       final f = entry.key;
       final cur = newClocks[f] ?? baseline;

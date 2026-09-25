@@ -20,13 +20,11 @@ param(
   [int]$SettleSeconds = 6,
   [int]$SampleSeconds = 20,
   [int]$IntervalMs = 2000,
-  [string]$WorkRoot = "",
+  [string]$WorkRoot = "D:\DeepseekHarness\TemporaryConversationFile\misc",
   [switch]$KeepWork
 )
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-# 临时工作区默认放系统临时目录（发布源码不写死任何本机路径）。
-if (-not $WorkRoot) { $WorkRoot = Join-Path $env:TEMP "quizsync-probe" }
 if ($ReleaseDir -eq "") {
   $ReleaseDir = Join-Path $RepoRoot "apps\desktop\build\windows\x64\runner\Release"
 }

@@ -152,7 +152,8 @@ class SettingsSection extends StatelessWidget {
         Text(title, style: SettingsType.pageTitle(scheme)),
         if (description != null) ...[
           const SizedBox(height: SettingsGap.s8),
-          Text(description!, style: SettingsType.pageDescription(scheme)),
+          SettingsRichText(description!,
+              style: SettingsType.pageDescription(scheme)),
         ],
         Padding(
           padding: const EdgeInsets.only(top: SettingsGap.s16),
@@ -261,7 +262,8 @@ class SettingsGroup extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(
                   SettingsGap.s16, SettingsGap.s8, SettingsGap.s16, 0),
-              child: Text(description!, style: SettingsType.rowSubtitle(scheme)),
+              child: SettingsRichText(description!,
+                  style: SettingsType.rowSubtitle(scheme)),
             ),
           ],
           if (children.isNotEmpty) ...[
@@ -281,6 +283,71 @@ class SettingsGroup extends StatelessWidget {
 /// 用户反馈 2（M14）暴露的正是这一点：只要 `info != null` 就渲染 ⓘ，
 /// 传了空串时会留一个点不动、悬停也没内容的死图标。没有文字就干脆不画。
 bool _hasInfo(String? info) => info != null && info.trim().isNotEmpty;
+
+/// 设置页说明文字里的**重点标记**渲染（M44 第 6 条）。
+///
+/// 说明文案一直用 `**…**` 标重点，但控件只是 `Text(...)`，于是用户在界面上
+/// 直接看到一对星号（用户原话：「设置中部分说明文字还存在 **」）。这里统一把
+/// 成对的 `**` 解析成**真加粗**，其余原样：
+/// - 成对出现 → 中间那段加粗（`FontWeight.w600`），星号本身不显示；
+/// - 落单（只有一个或奇数个）→ **原样显示星号**，绝不吞掉用户能看到的字符；
+/// - `****`（例如「尾 4 位 ****1234」这种掩码）→ 不成对，原样保留。
+List<TextSpan> settingsMarkdownSpans(String text, TextStyle style) {
+  final spans = <TextSpan>[];
+  var index = 0;
+  while (index < text.length) {
+    final start = text.indexOf('**', index);
+    if (start < 0) break;
+    final end = text.indexOf('**', start + 2);
+    if (end < 0) break; // 落单的 `**`：原样留在最后一段里
+    if (end == start + 2) {
+      // `****`（连着的四个星号，例如「尾 4 位 ****1234」这种掩码）不成对：
+      // 把第一个 `**` 当普通文字吐出去，继续往后找。
+      if (start > index) {
+        spans.add(TextSpan(text: text.substring(index, start), style: style));
+      }
+      spans.add(TextSpan(text: '**', style: style));
+      index = start + 2;
+      continue;
+    }
+    if (start > index) {
+      spans.add(TextSpan(text: text.substring(index, start), style: style));
+    }
+    spans.add(TextSpan(
+      text: text.substring(start + 2, end),
+      style: style.copyWith(fontWeight: FontWeight.w600),
+    ));
+    index = end + 2;
+  }
+  if (index < text.length) {
+    spans.add(TextSpan(text: text.substring(index), style: style));
+  }
+  return spans;
+}
+
+/// 一行说明文字（自动处理 `**重点**`）。设置页里所有用户可见的说明都走它。
+class SettingsRichText extends StatelessWidget {
+  const SettingsRichText(
+    this.text, {
+    super.key,
+    required this.style,
+    this.textAlign,
+    this.maxLines,
+  });
+
+  final String text;
+  final TextStyle style;
+  final TextAlign? textAlign;
+  final int? maxLines;
+
+  @override
+  Widget build(BuildContext context) => Text.rich(
+        TextSpan(children: settingsMarkdownSpans(text, style)),
+        style: style,
+        textAlign: textAlign,
+        maxLines: maxLines,
+      );
+}
 
 /// 打开 ⓘ 的完整说明对话框。
 ///
@@ -307,7 +374,8 @@ Future<void> _showSettingsInfoDialog(
           // 限死可读行长；内容再长就在对话框内滚动。
           constraints: const BoxConstraints(maxWidth: 460, maxHeight: 360),
           child: SingleChildScrollView(
-            child: Text(info, style: SettingsType.pageDescription(scheme)),
+            child: SettingsRichText(info,
+                style: SettingsType.pageDescription(scheme)),
           ),
         ),
         actions: [
@@ -418,7 +486,8 @@ class SettingsRow extends StatelessWidget {
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
-                    Text(subtitle!, style: SettingsType.rowSubtitle(scheme)),
+                    SettingsRichText(subtitle!,
+                        style: SettingsType.rowSubtitle(scheme)),
                   ],
                 ],
               ),
@@ -518,7 +587,8 @@ class SettingsField extends StatelessWidget {
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            Text(subtitle!, style: SettingsType.rowSubtitle(scheme)),
+            SettingsRichText(subtitle!,
+                style: SettingsType.rowSubtitle(scheme)),
           ],
           const SizedBox(height: SettingsGap.s16),
           ConstrainedBox(
@@ -561,7 +631,7 @@ class SettingsNote extends StatelessWidget {
           Icon(warn ? Icons.warning_amber_rounded : icon, size: 16, color: color),
           const SizedBox(width: SettingsGap.s8),
           Expanded(
-            child: Text(text,
+            child: SettingsRichText(text,
                 style: TextStyle(fontSize: 12.5, height: 1.5, color: color)),
           ),
         ],

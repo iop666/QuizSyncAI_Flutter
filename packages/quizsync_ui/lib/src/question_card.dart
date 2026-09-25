@@ -20,11 +20,18 @@ class QuestionCard extends StatelessWidget {
   /// null = 保持原样（题干 w500，其余继承外部样式）——安卓端不传这个参数。
   final int? fontWeight;
 
+  /// 是否**总是**显示「把握 N%」（默认只在 0 < confidence < 1 时显示）。
+  ///
+  /// Windows 悬浮窗传 true（M33 第 13 条：题号后面要跟上题型与 AI 把握率）：
+  /// 那个窗里没有别的置信度线索，缺了它用户不知道这条答案有多可信。
+  final bool alwaysShowConfidence;
+
   const QuestionCard({
     super.key,
     required this.question,
     required this.fontSize,
     this.fontWeight,
+    this.alwaysShowConfidence = false,
   });
 
   @override
@@ -170,8 +177,11 @@ class QuestionCard extends StatelessWidget {
         // 排序序号放在题号徽标**外面、前面**（用户反馈 7）：
         // 序号是我们给的（本次识别的第几题），题号是 AI 从图里读到的，
         // 两者含义不同，挤在同一个徽标里会被读成同一个数字。
+        //
+        // M33：**序号后面不带点号**（用户原话「题号不带 `1.`，说的只是 `.`，
+        // 不是不显示」）—— 序号照旧显示，只是把 `1.` 写成 `1`。
         Text(
-          '${q.ordinal + 1}.',
+          '${q.ordinal + 1}',
           key: const ValueKey('question-seq'),
           style: TextStyle(
             fontSize: 12.5,
@@ -243,7 +253,8 @@ class QuestionCard extends StatelessWidget {
             icon: Icons.image_outlined,
             filled: false,
           ),
-        if (q.confidence > 0 && q.confidence < 1)
+        // 置信度徽标（ai-contract §6）；悬浮窗要求**总是**显示把握率（M33 第 13 条）。
+        if (q.confidence > 0 && (alwaysShowConfidence || q.confidence < 1))
           Text(
             '把握 ${(q.confidence * 100).round()}%',
             style: TextStyle(fontSize: 11, color: secondary),

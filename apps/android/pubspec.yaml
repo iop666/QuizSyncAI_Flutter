@@ -1,9 +1,10 @@
 name: quizsync_android
 description: "QuizSync AI — Android 端（悬浮球截屏、上传分析、本地历史）。"
 publish_to: 'none'
-# 1.0.0 = 正式版（M18 第 1 条）。`+N` 只是内部出包序号：Android 用它生成
-# versionCode（1000+N / 2000+N / 4000+N），保证新包能覆盖安装；界面上不显示。
-version: 1.0.0+18
+# 1.0.0 = 正式版（M18 第 1 条）。M46 第 4 条：双端统一到 1.1.0。
+# `+N` 只是内部出包序号：Android 用它生成 versionCode（1000+N / 2000+N / 4000+N），
+# 保证新包能覆盖安装；界面上不显示。
+version: 1.1.0+22
 
 environment:
   sdk: ^3.13.0
@@ -11,7 +12,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
   drift: ^2.20.0
   quizsync_core:
     path: ../../packages/quizsync_core

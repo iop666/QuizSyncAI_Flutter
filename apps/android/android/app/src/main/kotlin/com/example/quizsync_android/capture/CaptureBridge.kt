@@ -63,6 +63,9 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
         /** 主线程 handler：Toast 等 UI 操作必须在主线程。 */
         private val mainHandler = Handler(Looper.getMainLooper())
 
+        /** 当前正在显示的系统 Toast（M49：新提示顶掉旧的，不排队）。 */
+        @Volatile private var currentToast: android.widget.Toast? = null
+
         /** Dart 期望悬浮球显示（setBallVisible(true) 曾成功或待重试）。 */
         @Volatile var ballWantedVisible: Boolean = false
 
@@ -138,6 +141,13 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
                     ball?.show() ?: false
                 } else {
                     ball?.hide()
+                    // M47（用户实测反馈「关闭悬浮球后，屏幕共享未自动终止」）：
+                    // 悬浮球是截屏的唯一入口，关掉它就该把常驻的截屏前台服务一起
+                    // 停掉 —— 否则 MediaProjection 一直活着、系统状态栏那条
+                    // 「屏幕共享/投屏」提示也不会消失。停服务会走 onDestroy →
+                    // releaseCapture()（释放 VirtualDisplay/ImageReader 并 stop 投影），
+                    // 下次要用时 availability() 会报不可用 → Dart 重新弹一次授权。
+                    (activity ?: appContext)?.let { CaptureService.stop(it) }
                     true
                 }
                 result.success(shown)
@@ -300,8 +310,14 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
         val ctx = activity ?: appContext ?: return
         mainHandler.post {
             try {
-                android.widget.Toast.makeText(ctx, text, android.widget.Toast.LENGTH_SHORT)
-                    .show()
+                // M49：`Toast.makeText().show()` 会**排队**（每条 LENGTH_SHORT ≈ 2 秒），
+                // 连按几页悬浮球就攒出一串提示，用户要等十几秒才看完。取消上一条、
+                // 只显示最新的那条（多页提示本身带页数，看最后一条信息量更大）。
+                currentToast?.cancel()
+                val toast = android.widget.Toast
+                    .makeText(ctx, text, android.widget.Toast.LENGTH_SHORT)
+                currentToast = toast
+                toast.show()
             } catch (_: Exception) {
             }
         }
