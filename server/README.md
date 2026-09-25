@@ -1,6 +1,6 @@
 # QuizSyncAI Server
 
-**截图 → AI → 手机** 专用 Windows 后台服务。功能冻结版 **v1.0.0**。
+**截图 → AI → 手机** 专用 Windows 后台服务。功能冻结版 **v1.0.1**（v1.0.0 之后的补丁版：不加功能，只补四条与主项目对齐的加固，见下）。
 
 - 它**不是** Windows Desktop 的一个模式，Desktop 也**不会**因为多了它而改任何东西；
 - 它**不依赖** Flutter / Desktop UI / 悬浮球 / 托盘 / 设置页 / Desktop 状态管理；
@@ -105,12 +105,18 @@ QuizSyncAI_Server.exe --help          # 全部参数
 早期版本把数据放在 `%APPDATA%\QuizSyncAI\Server`，升级时会**自动搬一次**到新目录
 （老目录保留不删）；用 `--config <目录>` 指定别的位置时不会去搬老数据。
 
+> ⚠️ **API Key 在这个产品里是明文存在 `config.json` 里的**（不是 DPAPI 加密）。
+> 这是它与桌面端「AI 双端搜题」的差别 —— 桌面端按 SPEC §10 走 DPAPI（`secure.bin`），
+> 而 Server 是一个功能冻结的独立命令行产品，`config.json` 跟着程序目录走。
+> `runtime.json` 里的停机令牌（`x-qs-control`）只对**回环地址**生效，局域网打不进来；
+> 但只要有本机文件读权限就能拿到 Key —— 介意的话请把程序放在只有自己能读的目录下。
+
 之后每次启动直接读配置，不再询问。
 
 启动后是**中文、紧凑**的一屏（不再是原来那种大英文方块）：
 
 ```text
-QuizSyncAI Server v1.0.0
+QuizSyncAI Server v1.0.1
 ──────────────────────────────────────────────
   服务器  运行中    192.168.1.100:8765
   手机    等待配对  配对码 582931
@@ -182,7 +188,7 @@ QuizSyncAI Server v1.0.0
 确认已有实例在跑，于是**不起第二个服务**，直接当那个实例的前端窗口：
 
 ```text
-QuizSyncAI Server v1.0.0
+QuizSyncAI Server v1.0.1
 ──────────────────────────────────────────────
   后台实例正在运行（PID 31752） · 端口 8821
   这里就是它的命令行：你敲的命令会送到那个进程上执行。
@@ -269,7 +275,19 @@ server/
   `quizsync_core` 以后怎么改都不会改变已冻结的 Server v1。
 - **没改主项目**：`apps/desktop`、`apps/android`、`packages/quizsync_core`、
   `packages/quizsync_ui` **一行都没动**，行为与加 Server 之前完全一致。
-- **冻结**：v1.0.0 之后不再跟随主项目。将来确实要改 Server，就发 Server v2。
+- **冻结**：v1.0.0 之后**功能**不再跟随主项目；v1.0.1 只补缺陷（见下），将来要真的加功能再发 Server v2。
+- **v1.0.1 补了什么**（M47，逐条与 Desktop 版同口径，都没引入新能力）：
+  1. **op 归属校验**：`/sync/ops` 与 WS `push_ops` 现在要求 `op.device_id` 等于认证设备，
+     否则计 `rejected` 丢弃（原来只挡「冒充主机」）；
+  2. **上传边读边限长**：分块传输（chunked）没有 `Content-Length` 时也一超限就回 413，
+     不再等整包进内存；
+  3. **上传限流**：每台设备每分钟 30 次，超限 429（原来只有 `/pair` 有限速）；
+  4. **snapshot 分页**：`limit`（默认 200）+ `offset` + `has_more`，题目只带本页会话；
+  5. **任务忙时回 429 `queue_full`**：Server 的任务链路本来就是串行的（`ServerTasks._busy`），
+     原来先答应 202、再让那条任务以 `busy` 失败 —— 现在直接告诉手机「稍后重试」；
+  6. **426 版本协商**（主版本不一致才拒，不带版本头的请求放行）、**`already_paired` 回 409**
+     （body 里照旧给新 token）；
+  7. README 里写明 **API Key 是明文存在 `config.json`**（本产品不走 DPAPI，见下）。
 
 ---
 
@@ -279,7 +297,7 @@ server/
 cd server
 dart pub get
 dart analyze          # 0 issue
-dart test             # 71 项（含真 HTTP + 真 WebSocket 回环 + 两个热键动作的行为）
+dart test             # 90 项（含真 HTTP + 真 WebSocket 回环 + 两个热键动作的行为）
 dart compile exe bin\quizsync_server.dart -o build\QuizSyncAI_Server.exe
 dart run tool\make_guide.dart build      # 生成《使用说明.txt》放在 exe 旁边
 ```
@@ -299,6 +317,9 @@ dart run tool\make_guide.dart build      # 生成《使用说明.txt》放在 ex
   多页中按识别键上传已抓的图、攒满 6 张自动上传、截图失败只写日志
 - 数据目录解析（exe 同目录 / `--config` 优先）与老数据自动搬迁
 - 启动标识（第几次启动写进 state.json）、状态块渲染、二维码渲染、配置与状态存取
+- **v1.0.1 的四条加固**：分块传输的超大包（不设 Content-Length、且不结束请求体）一超限就回 413、
+  上传限流按设备算（第 3 次 429、另一台不受影响）、snapshot 分页（limit/offset/has_more 不重不漏）、
+  已有识别在跑时新建任务回 429 `queue_full`
 
 ### 诊断脚本（`tool/`，不随包发布）
 

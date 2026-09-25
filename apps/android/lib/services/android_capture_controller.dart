@@ -27,7 +27,7 @@ class CaptureResult {
 /// 手势语义（Kotlin 只上报「短按 / 长按」，模式判断在 Dart）：
 /// - 短按（非多页）：单图识别；
 /// - 长按：进入并累加多页（每页立即上传），到上限自动提交；
-/// - 短按（多页中）：该短按作为最后一页，然后创建多页任务。
+/// - 短按（多页中）：只提交已截取的页并退出多页模式（M49 起不再补截一页）。
 class AndroidCaptureController {
   final AndroidAppState app;
   final CaptureSource captureSource;
@@ -92,7 +92,7 @@ class AndroidCaptureController {
       case 'ball_action':
         final action = call.arguments?.toString() ?? '';
         switch (action) {
-          // 短按：非多页 = 单图识别；多页中 = 最后一页 + 提交。
+          // 短按：非多页 = 单图识别；多页中 = 结束并提交已截取的页。
           case 'capture':
             await onBallTap();
             break;
@@ -114,7 +114,7 @@ class AndroidCaptureController {
   // 手势入口（用户需求 11）
   // ------------------------------------------------------------
 
-  /// 短按：非多页模式 = 单图识别；多页模式 = 结束手势并识别。
+  /// 短按：非多页模式 = 单图识别；多页模式 = 结束并识别已截取的页。
   Future<CaptureResult> onBallTap() async {
     if (_busy) {
       _notify('已有任务在进行中，请稍候');
@@ -245,19 +245,21 @@ class AndroidCaptureController {
         return const CaptureResult.failed(kNoActiveCollectionMessage);
       }
       // 主机不在线等网络问题 → 入离线队列，等上线后自动补跑。
-      final queued = await _enqueueOffline(jpegHash, collectionId: collectionId);
-      if (queued) {
+      final queued = await _enqueueOrReport(jpegHash, collectionId: collectionId);
+      if (queued == true) {
         _notify('Windows 不在线，已排队，上线后自动分析');
         return const CaptureResult.failed('Windows 不在线，已排队，上线后自动分析');
       }
+      if (queued == null) return const CaptureResult.failed(_kQueueFullMessage);
       _notify('上传失败：${e.message}');
       return CaptureResult.failed('上传失败：${e.message}');
     } catch (_) {
-      final queued = await _enqueueOffline(jpegHash, collectionId: collectionId);
-      if (queued) {
+      final queued = await _enqueueOrReport(jpegHash, collectionId: collectionId);
+      if (queued == true) {
         _notify('Windows 不在线，已排队，上线后自动分析');
         return const CaptureResult.failed('Windows 不在线，已排队，上线后自动分析');
       }
+      if (queued == null) return const CaptureResult.failed(_kQueueFullMessage);
       _notify('Windows 不在线');
       return const CaptureResult.failed('Windows 不在线');
     } finally {
@@ -344,25 +346,27 @@ class AndroidCaptureController {
         _notify(kNoActiveCollectionMessage);
         return const CaptureResult.failed(kNoActiveCollectionMessage);
       }
-      final queued = await _enqueueOffline(
+      final queued = await _enqueueOrReport(
           hashes.isEmpty ? null : hashes.first,
           imageHashes: hashes,
           collectionId: collectionId);
-      if (queued) {
+      if (queued == true) {
         _notify('Windows 不在线，已把 ${hashes.length} 页排队，上线后自动分析');
         return CaptureResult.failed('Windows 不在线，已排队，上线后自动分析');
       }
+      if (queued == null) return const CaptureResult.failed(_kQueueFullMessage);
       _notify('上传失败：${e.message}');
       return CaptureResult.failed('上传失败：${e.message}');
     } catch (_) {
-      final queued = await _enqueueOffline(
+      final queued = await _enqueueOrReport(
           hashes.isEmpty ? null : hashes.first,
           imageHashes: hashes,
           collectionId: collectionId);
-      if (queued) {
+      if (queued == true) {
         _notify('Windows 不在线，已排队，上线后自动分析');
         return const CaptureResult.failed('Windows 不在线，已排队，上线后自动分析');
       }
+      if (queued == null) return const CaptureResult.failed(_kQueueFullMessage);
       _notify('Windows 不在线');
       return const CaptureResult.failed('Windows 不在线');
     } finally {
@@ -448,10 +452,35 @@ class AndroidCaptureController {
         collectionId: collectionId,
       );
       return true;
+    } on QueueFullException {
+      // M47：队满不是「网络问题」，不能和别的异常一起吞掉 —— 原来调用方一律回
+      // 「上传失败：<网络错误>」，用户永远看不到「离线队列已满（20）…」这句
+      // （相册路径是对的，见 home_page 的 on QueueFullException）。
+      rethrow;
     } catch (_) {
       return false;
     }
   }
+
+  /// 入离线队列，并在**队满**时给一句真话。
+  ///
+  /// 返回 `true` = 已排队；`false` = 排不进去（原图不在磁盘上）；`null` = 队满
+  /// （提示已经发过，调用方直接返回失败即可）。
+  Future<bool?> _enqueueOrReport(
+    String? hash, {
+    List<String>? imageHashes,
+    String? collectionId,
+  }) async {
+    try {
+      return await _enqueueOffline(hash,
+          imageHashes: imageHashes, collectionId: collectionId);
+    } on QueueFullException catch (e) {
+      _notify('$e');
+      return null;
+    }
+  }
+
+  static const String _kQueueFullMessage = '离线队列已满，请等 Windows 上线后重试';
 
   /// 桌面/测试环境没有平台实现时静默忽略；后台时用系统 Toast 提示
   /// （多页手势的用户多半正在别的应用里看题，SnackBar 他看不到）。

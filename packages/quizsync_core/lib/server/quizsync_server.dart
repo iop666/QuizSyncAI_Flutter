@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value, Variable;
 import 'package:shelf/shelf.dart';
@@ -24,6 +25,14 @@ class QuizSyncServerOptions {
   final int maxImageBytes;
   final int syncPageSize;
 
+  /// 上传接口限流：每台设备每分钟最多多少次（`SPEC.md` §10 / `protocol.md` §3.2）。
+  /// ≤ 0 表示不限流（供单测批量上传用）。
+  final int imageUploadsPerMinute;
+
+  /// 任务队列深度上限（M47）：排队中的任务达到这个数就回 429，
+  /// 免得主机被一个客户端的连点灌满、tasks 表无限膨胀。
+  final int maxQueueDepth;
+
   const QuizSyncServerOptions({
     this.preferredPort = 8765,
     this.portRange = 6,
@@ -35,6 +44,8 @@ class QuizSyncServerOptions {
     this.pairLockout = const Duration(seconds: 60),
     this.maxImageBytes = 2 * 1024 * 1024,
     this.syncPageSize = 500,
+    this.imageUploadsPerMinute = 30,
+    this.maxQueueDepth = 20,
   });
 }
 
@@ -99,6 +110,49 @@ class QuizSyncServer {
   int _pairFailures = 0;
   int _lockedUntil = 0;
 
+  /// 设备 → 最近一次**已认证请求**的时刻。
+  ///
+  /// 手机端在前台时每秒问一次 `/tasks/active`（`HostStatusPoller`），那条路径
+  /// **不建 WS** —— 设置页只看 `connectedCount`（WS 连接数）的话，手机明明正在用，
+  /// 界面却一直停在「等待手机连接」（用户实测反馈 M47）。所以「在线」的判据改成
+  /// 「WS 连着 **或** 最近 [kActiveDeviceWindowMs] 内有已认证请求」。
+  final Map<String, int> _lastAuthedAt = {};
+
+  /// 多久没动静就算不在线（手机 1 秒一轮，取 15 秒留足抖动余量）。
+  static const int kActiveDeviceWindowMs = 15000;
+
+  /// 配对失败计数与锁定期落库（M47）：原来只在内存里，重启即清零 ——
+  /// 攻击者只要让服务重启一次就能继续猜配对码。
+  static const String _kPairFailKey = 'pair_fail_count';
+  static const String _kPairLockKey = 'pair_locked_until';
+
+  Future<void> _loadPairGuard() async {
+    try {
+      _pairFailures =
+          int.tryParse(await repo.getSetting(_kPairFailKey) ?? '') ?? 0;
+      _lockedUntil =
+          int.tryParse(await repo.getSetting(_kPairLockKey) ?? '') ?? 0;
+      if (_lockedUntil != 0 && now() >= _lockedUntil) {
+        _lockedUntil = 0;
+        _pairFailures = 0;
+      }
+    } catch (_) {
+      // 读库失败按「没有历史」处理。
+    }
+  }
+
+  Future<void> _savePairGuard() async {
+    try {
+      await repo.setSetting(_kPairFailKey, '$_pairFailures');
+      await repo.setSetting(_kPairLockKey, '$_lockedUntil');
+    } catch (_) {
+      // 写库失败不影响本次配对流程。
+    }
+  }
+
+  /// 上传接口的滑窗（每台设备各自一份）。
+  final Map<String, List<int>> _uploadTimestamps = {};
+
   // WS 连接表：device_id → channel（同 device 新连接踢旧连接）。
   final Map<String, WebSocketChannel> _connections = {};
   final Map<String, Timer> _pingTimers = {};
@@ -136,6 +190,8 @@ class QuizSyncServer {
   /// preferredPort 传 0 表示随机端口（测试用）。
   Future<int> start() async {
     executor.onTaskUpdate = notifyTaskUpdate;
+    // M47：把上次运行留下的配对失败计数 / 锁定期读回来（重启不再清零）。
+    await _loadPairGuard();
     final handler = const Pipeline().addMiddleware(_middleware).addHandler(
           (req) => _router(req),
         );
@@ -220,6 +276,9 @@ class QuizSyncServer {
             authFailure = _error(401, 'unauthorized', 'token 无效');
           }
         }
+        // M47：版本协商（protocol.md 2.1）—— 主版本不一致直接 426，免得两端
+        // 用不兼容的载荷互相写坏数据。
+        authFailure ??= _versionMismatch(request);
         final response = await (authFailure == null
             ? inner(request)
             : Future<Response>.value(authFailure));
@@ -228,6 +287,20 @@ class QuizSyncServer {
           ...response.headers,
         });
       };
+
+  /// 主版本不一致 → 426（body 里给出双方版本）。
+  ///
+  /// **不带 `X-QS-Client-Version` 的请求一律放行**：老版本客户端与手工 curl
+  /// 都没有这个头，把它们全挡在门外没有意义（协议推进时再收紧）。
+  Response? _versionMismatch(Request request) {
+    final client = request.headers['x-qs-client-version']?.trim() ?? '';
+    if (client.isEmpty) return null;
+    final server = options.appVersion;
+    String major(String v) => v.split('.').first;
+    if (major(client) == major(server)) return null;
+    return _error(426, 'version_mismatch',
+        '客户端版本 $client 与服务端 $server 主版本不一致，请两端都升级到同一大版本');
+  }
 
   String? _bearerToken(Request request) {
     final header = request.headers['authorization'];
@@ -242,11 +315,24 @@ class QuizSyncServer {
     final hash = sha256Hex(token.codeUnits);
     for (final d in await repo.listDevices()) {
       if (d.tokenHash == hash) {
+        if (!d.isRevoked) _lastAuthedAt[d.deviceId] = now();
         return d.isRevoked ? AuthStatus.revoked : AuthStatus.valid;
       }
     }
     return AuthStatus.invalid;
   }
+
+  /// 「在线」的设备：WS 连着的 **加上** 最近有过已认证请求的。
+  ///
+  /// 手机端轮询走 HTTP，不建 WS；只看 WS 连接数会让设置页一直显示「等待手机连接」。
+  Set<String> get activeDeviceIds {
+    final ts = now();
+    _lastAuthedAt.removeWhere((_, t) => ts - t > kActiveDeviceWindowMs);
+    return {..._connections.keys, ..._lastAuthedAt.keys};
+  }
+
+  /// 在线的设备数（设置页「当前连接状态」用）。
+  int get activeDeviceCount => activeDeviceIds.length;
 
   /// 当前请求的设备 id（token 有效且未吊销时）。
   Future<String?> _authDeviceId(Request request) async {
@@ -256,6 +342,21 @@ class QuizSyncServer {
     for (final d in await repo.listDevices()) {
       if (d.tokenHash == hash && !d.isRevoked) return d.deviceId;
     }
+    return null;
+  }
+
+  /// 上传接口的滑窗限流（每台设备每分钟 [QuizSyncServerOptions.imageUploadsPerMinute] 次）。
+  /// 通过返回 null；被限流返回 429 响应。
+  Response? _checkUploadRate(String deviceId) {
+    if (options.imageUploadsPerMinute <= 0) return null;
+    final ts = now();
+    final list = _uploadTimestamps.putIfAbsent(deviceId, () => <int>[]);
+    list.removeWhere((t) => ts - t > 60000);
+    if (list.length >= options.imageUploadsPerMinute) {
+      return _error(429, 'rate_limited', '上传过于频繁',
+          retryAfterSeconds: ((60000 - (ts - list.first)) / 1000).ceil());
+    }
+    list.add(ts);
     return null;
   }
 
@@ -384,25 +485,33 @@ class QuizSyncServer {
         appVersion: req.appVersion,
       ));
       _pairFailures = 0;
+      await _savePairGuard();
+      // M47（protocol.md 2.2）：同 device_id 重新配对 = **409 already_paired**，
+      // body 里照样给新 token（旧的已作废），客户端按成功处理即可。
       return _json({
         'token': token,
         'server_device_id': deviceId,
         'server_name': serverName,
         'protocol_version': options.protocolVersion,
         if (existing != null) 'already_paired': true,
-      });
+      }, status: existing != null ? 409 : 200);
     } on _PairFailure catch (e) {
       _pairFailures++;
       if (_pairFailures >= options.pairFailureLockThreshold) {
         _lockedUntil = ts + options.pairLockout.inMilliseconds;
         _pairFailures = 0;
       }
+      await _savePairGuard();
       return _error(e.status, e.code, e.message,
           retryAfterSeconds: e.retryAfterSeconds);
     }
   }
 
   FutureOr<Response> _handleImageUpload(Request request) async {
+    // M47（SPEC §10 / protocol.md 3.2）：上传接口每分钟 30 次。
+    final caller = await _authDeviceId(request);
+    final limited = _checkUploadRate(caller ?? '');
+    if (limited != null) return limited;
     // 先按 Content-Length 拦一道：原实现在 multipart 解析完、整个 part 都进
     // 内存之后才判断大小，构造一个超大请求就能把主机内存吃掉。
     final declared = request.contentLength;
@@ -415,7 +524,22 @@ class QuizSyncServer {
     }
     await for (final field in form.formData) {
       if (field.name != 'file') continue;
-      final bytes = await field.part.readBytes();
+      // M47：上面那道预检依赖 Content-Length —— 分块传输（chunked）时它是 null，
+      // 于是「整块读进内存再判大小」照样能被吃爆内存。这里边收边计数，一超限
+      // 立刻 413 并停止读取。
+      final builder = BytesBuilder(copy: false);
+      var tooLarge = false;
+      await for (final chunk in field.part) {
+        builder.add(chunk);
+        if (builder.length > options.maxImageBytes) {
+          tooLarge = true;
+          break;
+        }
+      }
+      if (tooLarge) {
+        return _error(413, 'payload_too_large', '单文件需 ≤ 2MB');
+      }
+      final bytes = builder.takeBytes();
       if (bytes.isEmpty) {
         return _error(400, 'invalid_request', '文件内容为空');
       }
@@ -425,7 +549,7 @@ class QuizSyncServer {
       final hash = sha256Hex(bytes);
       final existed = await repo.getImage(hash);
       await imageStore.write(hash, bytes);
-      final uploader = await _authDeviceId(request);
+      final uploader = caller ?? repo.deviceId;
       final localPath = imageStore.pathFor(hash) ?? existed?.localPath;
       // 用户反馈 M15 第 2 条：这里原来在**写完文件之后**又查了一次库，
       // 而写文件并不建 `images` 行，查到的 localPath 必然是 null —— 于是手机
@@ -437,7 +561,7 @@ class QuizSyncServer {
         mime: 'image/jpeg',
         localPath: localPath,
         createdAt: existed?.createdAt ?? now(),
-        uploadedBy: uploader ?? repo.deviceId,
+        uploadedBy: uploader,
       ));
       if (localPath != null && existed?.localPath != localPath) {
         // `upsertImage` 的「有变化吗」判定**不含 local_path**（本地专属列不进 op），
@@ -511,6 +635,17 @@ class QuizSyncServer {
     }
     if (await repo.getCollection(collectionId) == null) {
       return _error(409, 'no_active_collection', '所选合集不存在，请重新选择');
+    }
+
+    // M47：任务队列深度上限。队列是串行执行的（并发恒 1），没有上限时一个
+    // 客户端连点就能让 tasks 表无限膨胀、主机端一直忙着跑旧任务。
+    final queuedCount = (await (repo.db.select(repo.db.tasks)
+              ..where((t) => t.status.equals('queued')))
+            .get())
+        .length;
+    if (queuedCount >= options.maxQueueDepth) {
+      return _error(429, 'queue_full', '主机任务队列已满（$queuedCount），请稍后重试',
+          retryAfterSeconds: 10);
     }
 
     final (status, sessionId) = await executor.submit(
@@ -675,6 +810,11 @@ class QuizSyncServer {
       return _error(400, 'invalid_request', 'ops 缺失');
     }
     var applied = 0;
+    var rejected = 0;
+    // M47：op 的**归属**必须等于认证设备。原来只挡「冒充主机」，于是任何已配对
+    // 设备都能拿别人的 device_id 配上任意大的 lamport 改写对方的数据
+    // （LWW 下高 lamport 必赢），并且会被主机当成真事再同步给所有对端。
+    final caller = await _authDeviceId(request);
     for (final raw in rawOps) {
       if (raw is! Map) continue;
       final op = SyncOp.fromJson(Map<String, dynamic>.from(raw));
@@ -682,10 +822,14 @@ class QuizSyncServer {
       // 客户端只是在回推拉取过的历史。放行则任何已配对设备都能用高 lamport
       // 冒充主机改写数据（LWW 下高 lamport 必赢）。
       if (op.deviceId == deviceId) continue;
+      if (caller == null || op.deviceId != caller) {
+        rejected++;
+        continue;
+      }
       final result = await repo.applyRemoteOp(op);
       if (!result.duplicate) applied++;
     }
-    return _json({'applied': applied});
+    return _json({'applied': applied, 'rejected': rejected});
   }
 
   FutureOr<Response> _handleOpsPull(Request request) async {
@@ -728,15 +872,41 @@ class QuizSyncServer {
     });
   }
 
+  /// `GET /api/v1/sync/snapshot`：全量实体的**分页**快照
+  /// （`data-model.md` 2.9：返回全量实体（分页））。
+  ///
+  /// M47：原来一次性 `listSessions(limit: 1000000)` 把整个库读进内存再拼成一个
+  /// JSON 字符串 —— 历史一多就是几百 MB。现在按会话分页：`limit`（默认 200，
+  /// 上限 1000）+ `offset`；题目 / 页序只带本页涉及的会话，图片只带元数据。
+  /// 合集与设备是两张小表，照旧全量（客户端要靠它们补基线）。
   FutureOr<Response> _handleSnapshot(Request request) async {
-    final sessions = await repo.listSessions(limit: 1000000);
+    final requested =
+        int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 200;
+    final limit = requested.clamp(1, 1000);
+    final offset =
+        (int.tryParse(request.url.queryParameters['offset'] ?? '') ?? 0)
+            .clamp(0, 1 << 30);
+    final ids = (await repo.db.customSelect(
+      'SELECT session_id FROM sessions WHERE deleted_at IS NULL '
+      'ORDER BY created_at ASC, session_id ASC LIMIT ? OFFSET ?',
+      variables: [Variable.withInt(limit + 1), Variable.withInt(offset)],
+      readsFrom: {repo.db.sessions},
+    ).get())
+        .map((r) => r.read<String>('session_id'))
+        .toList();
+    final hasMore = ids.length > limit;
+    final pageIds = hasMore ? ids.sublist(0, limit) : ids;
+    final sessions = <Session>[];
     final questions = <Map<String, dynamic>>[];
     final sessionImages = <Map<String, dynamic>>[];
-    for (final s in sessions) {
+    for (final id in pageIds) {
+      final s = await repo.getSession(id, includeDeleted: true);
+      if (s == null) continue;
+      sessions.add(s);
       questions.addAll(
-          (await repo.questionsOfSession(s.sessionId)).map((q) => q.toJson()));
+          (await repo.questionsOfSession(id)).map((q) => q.toJson()));
       sessionImages.addAll(
-          (await repo.sessionImagesOf(s.sessionId)).map((p) => p.toJson()));
+          (await repo.sessionImagesOf(id)).map((p) => p.toJson()));
     }
     final images = <Map<String, dynamic>>[];
     for (final row in await repo.db.select(repo.db.images).get()) {
@@ -753,6 +923,8 @@ class QuizSyncServer {
       // devices 的 toJson 已排除 token_hash。
       'devices': (await repo.listDevices()).map((d) => d.toJson()).toList(),
       'watermark': await repo.db.maxLamport(),
+      'has_more': hasMore,
+      'next_offset': hasMore ? offset + pageIds.length : null,
     });
   }
 
@@ -878,8 +1050,10 @@ class QuizSyncServer {
             for (final raw in ops) {
               if (raw is! Map) continue;
               final op = SyncOp.fromJson(Map<String, dynamic>.from(raw));
-              // 同 HTTP：不接受冒充主机自己的 op（见 _handleOpsPush）。
+              // 同 HTTP：不接受冒充主机自己的 op，也不接受冒充**别的设备**的 op
+              // （见 _handleOpsPush）。
               if (op.deviceId == this.deviceId) continue;
+              if (op.deviceId != deviceId) continue;
               await repo.applyRemoteOp(op);
               if (op.lamport > maxLamport) maxLamport = op.lamport;
             }

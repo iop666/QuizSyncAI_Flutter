@@ -12,6 +12,17 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 /// 原实现的致命 bug：录制出来的 `HotKey` 里是 `PhysicalKeyboardKey`，而
 /// `_setupHotkey` 只认 `LogicalKeyboardKey` → 用户自定义的快捷键一律被判成
 /// 「不支持」并悄悄回退到默认候选键（表现就是「热键设置了不生效」）。
+///
+/// ## M46 第 1 条：热键只留**两个**，默认 F8 / F9
+///
+/// 用户要求「只有两个热键，默认截屏识别为 F8；进入多页模式并截取第一张为 F9」，
+/// 并明确「截屏逻辑和 server 类似」—— 服务端（`server/lib/src/capture_flow.dart`）
+/// 就是这两个动作的语义，这里把它搬到桌面端：
+///   * **截屏识别（F8）**：不在多页模式 → 截一张立刻识别；已在多页模式 → **结束多页**，
+///     把已抓的图一起上传识别（**不再多截一张**）；
+///   * **多页模式（F9）**：第一下进入多页并抓第 1 张，继续按追加；抓满上限
+///     （默认 6 张）**自动上传识别**。
+/// 原来的「添加页面 / 结束多页识别」两条热键合并成上面这一条多页热键。
 
 // ---------------------------------------------------------------------------
 // 修饰键（与 win32 的 MOD_* 一致，这里自带常量以便纯逻辑可单测）
@@ -23,10 +34,11 @@ const int kModShift = 0x0004;
 const int kModWin = 0x0008;
 
 /// 热键用途。每个槽位各自注册、互不影响（RegisterHotKey 的 id 是线程级的）。
+///
+/// M46 第 1 条：**只有两个**（用户要求「就是只有两个热键」）。
 enum HotkeySlot {
-  capture('截图识别', '截取鼠标所在的那块屏幕，立刻识别并给出答案'),
-  append('添加页面', '把当前屏幕追加为多页识别的一页（一题多屏时用）'),
-  finish('结束多页识别', '截下最后一页，把本次暂存的全部页面一起上传识别');
+  capture('截屏识别', '截取鼠标所在的那块屏幕立刻识别；已在多页模式里时＝结束多页并上传已抓的图'),
+  multipage('多页模式', '按第一下进入多页并抓第一张，继续按追加；抓满 6 张自动上传识别');
 
   const HotkeySlot(this.title, this.description);
 
@@ -36,10 +48,47 @@ enum HotkeySlot {
   /// 托盘菜单里的动作 key（与 main.dart 的菜单项一致）。
   String get trayAction => switch (this) {
         HotkeySlot.capture => 'capture',
-        HotkeySlot.append => 'append',
-        HotkeySlot.finish => 'finish',
+        HotkeySlot.multipage => 'multipage',
       };
 }
+
+/// 一次热键触发该做什么（M46 第 1 条）。
+///
+/// 抽成纯函数是为了**能单测**：这几条语义（什么时候单张、什么时候结束多页、
+/// 什么时候算满）就是这个里程碑的核心逻辑，不能只写在窗口回调里。
+enum CaptureIntent {
+  /// 截一张屏立刻识别。
+  single,
+
+  /// 结束多页：把已攒的页一次上传识别（**不再多截一张**）。
+  finishMultipage,
+
+  /// 截一张并把这一页并入多页暂存区。
+  multipagePage,
+
+  /// 多页暂存已满：不再截，等用户按截屏识别键上传（或按 UI 上的「结束」）。
+  multipageFull,
+}
+
+/// 「截屏识别」热键按一下该做什么：[staged] = 当前已暂存几页。
+///
+/// 攒着页就说明用户正在多页模式里 → 这一按是**结束多页**（服务端同样是这个语义）。
+CaptureIntent intentOfCaptureHotkey(int staged) =>
+    staged > 0 ? CaptureIntent.finishMultipage : CaptureIntent.single;
+
+/// 「多页模式」热键按一下该做什么：[staged] 已暂存页数、[limit] 本次上限。
+CaptureIntent intentOfMultipageHotkey({
+  required int staged,
+  required int limit,
+}) =>
+    staged >= limit ? CaptureIntent.multipageFull : CaptureIntent.multipagePage;
+
+/// 抓完一张之后要不要**立刻自动上传识别**（用户要求：抓满第 6 张就自动识别）。
+bool shouldAutoUploadAfterCapture({
+  required int staged,
+  required int limit,
+}) =>
+    staged >= limit;
 
 /// 某个槽位的注册结果类型（决定设置页怎么显示）。
 enum HotkeyOutcome {
@@ -127,24 +176,23 @@ class HotkeyCandidate {
 }
 
 /// 每个槽位的默认候选键，按优先级排列。
-/// Ctrl+Alt+Q 在不少机器上被截图/输入法工具抢注，注册失败就换下一个。
+///
+/// M46 第 1 条：默认就是 **F8 / F9**（用户明确要求）。单按功能键不会抢走普通
+/// 打字，所以可以不带修饰键；但它们也可能被别的程序占用（本机实测老默认键
+/// `Ctrl+Alt+Q` 就被小米云服务占着），所以后面仍保留带修饰键的候选键，
+/// 注册失败时按顺序往下试（并且把真实生效的键显示在设置页与托盘上）。
 const Map<HotkeySlot, List<HotkeyCandidate>> kHotkeyCandidates = {
   HotkeySlot.capture: [
+    HotkeyCandidate('F8', 0x77, 0),
     HotkeyCandidate('Ctrl+Alt+Q', 0x51, kModControl | kModAlt),
     HotkeyCandidate('Ctrl+Alt+X', 0x58, kModControl | kModAlt),
-    HotkeyCandidate('Ctrl+Alt+G', 0x47, kModControl | kModAlt),
     HotkeyCandidate('Ctrl+Shift+Q', 0x51, kModControl | kModShift),
   ],
-  HotkeySlot.append: [
+  HotkeySlot.multipage: [
+    HotkeyCandidate('F9', 0x78, 0),
     HotkeyCandidate('Ctrl+Alt+A', 0x41, kModControl | kModAlt),
     HotkeyCandidate('Ctrl+Alt+D', 0x44, kModControl | kModAlt),
-    HotkeyCandidate('Ctrl+Alt+Z', 0x5A, kModControl | kModAlt),
     HotkeyCandidate('Ctrl+Shift+A', 0x41, kModControl | kModShift),
-  ],
-  HotkeySlot.finish: [
-    HotkeyCandidate('Ctrl+Alt+S', 0x53, kModControl | kModAlt),
-    HotkeyCandidate('Ctrl+Alt+W', 0x57, kModControl | kModAlt),
-    HotkeyCandidate('Ctrl+Shift+S', 0x53, kModControl | kModShift),
   ],
 };
 
@@ -246,6 +294,12 @@ String vkLabel(int vk) {
   return _vkNames[vk] ?? 'VK_0x${vk.toRadixString(16).toUpperCase()}';
 }
 
+/// 是否功能键 F1–F12。
+///
+/// M46 第 1 条：默认热键是**单按** F8/F9，所以「必须带修饰键」这条规则要给
+/// 功能键开个口子（单按字母/数字确实会抢走普通输入，单按 F1–F12 不会）。
+bool isFunctionKeyVk(int vk) => vk >= 0x70 && vk <= 0x7b;
+
 /// 修饰键 → 原生 MOD_* 位。
 int nativeModsOf(List<HotKeyModifier>? modifiers) {
   var m = 0;
@@ -301,20 +355,25 @@ String hotkeyLabelOf(HotKey hk) {
 ///
 /// 规则（用户能自己看懂）：
 ///  - 主键不能是修饰键本身；
-///  - 至少要有一个修饰键（Ctrl / Alt / Shift / Win），否则会把普通打字全抢走；
-///  - 主键必须是本程序认得的键（见 [vkOfKey]）。
+///  - 主键必须是本程序认得的键（见 [vkOfKey]）；
+///  - 除 F1–F12 外**至少要有一个修饰键**（单按字母/数字会把普通打字全抢走）。
+///    M46 第 1 条：默认热键就是单按 F8 / F9，所以功能键放行。
 String? hotkeyRejectReason(HotKey hk) {
   final pressedIsModifier = HotKeyModifier.values
       .any((m) => m.physicalKeys.contains(_physicalOf(hk)));
   if (pressedIsModifier) return '只按修饰键不算组合键';
+  final vk = vkOfKey(hk.key);
+  if (vk == null) return '这个键不支持做全局热键';
   final realMods = (hk.modifiers ?? const <HotKeyModifier>[])
       .where((m) => m == HotKeyModifier.control ||
           m == HotKeyModifier.alt ||
           m == HotKeyModifier.shift ||
           m == HotKeyModifier.meta)
       .toList();
-  if (realMods.isEmpty) return '至少需要一个修饰键（Ctrl / Alt / Shift / Win）';
-  if (vkOfKey(hk.key) == null) return '这个键不支持做全局热键';
+  if (realMods.isEmpty && !isFunctionKeyVk(vk)) {
+    return '单按这个键会抢走普通打字，请加一个修饰键（Ctrl / Alt / Shift / Win）；'
+        '单按 F1–F12 可以';
+  }
   return null;
 }
 

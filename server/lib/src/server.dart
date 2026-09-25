@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
@@ -28,6 +29,10 @@ class ServerOptions {
   final Duration pairLockout;
   final int maxImageBytes;
 
+  /// 上传接口限流：每台设备每分钟最多多少次（`SPEC.md` §10 / `protocol.md` §3.2）。
+  /// ≤ 0 表示不限流（供单测批量上传用）。M47 与 Desktop 版对齐。
+  final int imageUploadsPerMinute;
+
   const ServerOptions({
     this.preferredPort = kDefaultPort,
     this.portRange = kPortRange,
@@ -38,6 +43,7 @@ class ServerOptions {
     this.pairFailureLockThreshold = 10,
     this.pairLockout = const Duration(seconds: 60),
     this.maxImageBytes = kMaxImageBytes,
+    this.imageUploadsPerMinute = 30,
   });
 }
 
@@ -96,6 +102,9 @@ class QuizSyncServer {
   final List<int> _pairAttemptTimestamps = [];
   int _pairFailures = 0;
   int _lockedUntil = 0;
+
+  /// 上传接口的滑窗（每台设备各自一份，M47 与 Desktop 版对齐）。
+  final Map<String, List<int>> _uploadTimestamps = {};
 
   // WS 连接表：device_id → channel（同 device 新连接踢旧连接）。
   final Map<String, WebSocketChannel> _connections = {};
@@ -239,6 +248,8 @@ class QuizSyncServer {
             authFailure = _error(401, 'unauthorized', 'token 无效');
           }
         }
+        // M47：版本协商（protocol.md 2.1）：主版本不一致 → 426。
+        authFailure ??= _versionMismatch(request);
         final response = await (authFailure == null
             ? inner(request)
             : Future<Response>.value(authFailure));
@@ -247,6 +258,17 @@ class QuizSyncServer {
           ...response.headers,
         });
       };
+
+  /// 主版本不一致 → 426（body 里给出双方版本）；不带这个头的请求放行。
+  Response? _versionMismatch(Request request) {
+    final client = request.headers['x-qs-client-version']?.trim() ?? '';
+    if (client.isEmpty) return null;
+    final server = options.appVersion;
+    String major(String v) => v.split('.').first;
+    if (major(client) == major(server)) return null;
+    return _error(426, 'version_mismatch',
+        '客户端版本 $client 与服务端 $server 主版本不一致，请两端都升级到同一大版本');
+  }
 
   String? _bearerToken(Request request) {
     final header = request.headers['authorization'];
@@ -365,7 +387,7 @@ class QuizSyncServer {
         'server_name': store.serverName,
         'protocol_version': options.protocolVersion,
         if (existing != null) 'already_paired': true,
-      });
+      }, status: existing != null ? 409 : 200);
     } on _PairFailure catch (e) {
       _pairFailures++;
       if (_pairFailures >= options.pairFailureLockThreshold) {
@@ -382,6 +404,10 @@ class QuizSyncServer {
   // ------------------------------------------------------------
 
   Future<Response> _handleImageUpload(Request request) async {
+    // M47（SPEC §10 / protocol.md 3.2）：上传接口每分钟 30 次，与 Desktop 版同一口径。
+    final caller = _authDeviceId(request);
+    final limited = _checkUploadRate(caller ?? '');
+    if (limited != null) return limited;
     // 先按 Content-Length 拦一道：否则整个 part 会先进内存再判大小。
     final declared = request.contentLength;
     if (declared != null && declared > options.maxImageBytes + 64 * 1024) {
@@ -393,7 +419,22 @@ class QuizSyncServer {
     }
     await for (final field in form.formData) {
       if (field.name != 'file') continue;
-      final bytes = await field.part.readBytes();
+      // M47：上面那道预检依赖 Content-Length —— 分块传输（chunked）时它是 null，
+      // 于是「整块读进内存再判大小」照样能被吃爆内存。这里边收边计数，一超限
+      // 立刻 413 并停止读取（与 Desktop 版 `_handleImageUpload` 一致）。
+      final builder = BytesBuilder(copy: false);
+      var tooLarge = false;
+      await for (final chunk in field.part) {
+        builder.add(chunk);
+        if (builder.length > options.maxImageBytes) {
+          tooLarge = true;
+          break;
+        }
+      }
+      if (tooLarge) {
+        return _error(413, 'payload_too_large', '单文件需 ≤ 2MB');
+      }
+      final bytes = builder.takeBytes();
       if (bytes.isEmpty) {
         return _error(400, 'invalid_request', '文件内容为空');
       }
@@ -412,6 +453,21 @@ class QuizSyncServer {
       });
     }
     return _error(400, 'invalid_request', '缺少 file 字段');
+  }
+
+  /// 上传接口的滑窗限流（每台设备每分钟 [ServerOptions.imageUploadsPerMinute] 次）。
+  /// 通过返回 null；被限流返回 429。
+  Response? _checkUploadRate(String deviceId) {
+    if (options.imageUploadsPerMinute <= 0) return null;
+    final ts = now();
+    final list = _uploadTimestamps.putIfAbsent(deviceId, () => <int>[]);
+    list.removeWhere((t) => ts - t > 60000);
+    if (list.length >= options.imageUploadsPerMinute) {
+      return _error(429, 'rate_limited', '上传过于频繁',
+          retryAfterSeconds: ((60000 - (ts - list.first)) / 1000).ceil());
+    }
+    list.add(ts);
+    return null;
   }
 
   Future<Response> _handleImageDownload(Request request, String hash) async {
@@ -473,6 +529,14 @@ class QuizSyncServer {
     }
 
     final force = body['force_reanalyze'] == true;
+    // M47（与 Desktop 版 C4 对齐）：Server 的任务链路是**串行**的（`ServerTasks`
+    // 用 `_busy` 挡并发），没有队列可排队 —— 所以这里在「已经有一条在跑」时
+    // 直接回 429，而不是先答应 202、再让那条任务以 `busy` 失败（手机端看到的是
+    // 「排队中」然后莫名其妙失败）。
+    if (tasks.busy) {
+      return _error(429, 'queue_full', '已有识别正在进行，请稍后重试',
+          retryAfterSeconds: 5);
+    }
     if (!force) {
       final reusable = tasks.findReusable(hashes);
       if (reusable != null) {
@@ -632,17 +696,24 @@ class QuizSyncServer {
       return _error(400, 'invalid_request', 'ops 缺失');
     }
     var applied = 0;
+    var rejected = 0;
+    // M47：op 的归属必须等于认证设备（与共享包里的内置服务端同一规则）。
+    final caller = _authDeviceId(request);
     for (final raw in rawOps) {
       if (raw is! Map) continue;
       final op = SyncOp.fromJson(Map<String, dynamic>.from(raw));
       // 拒绝「声称由主机自己产生」的 op（主机没有任何 op）。
       if (op.deviceId == store.deviceId) continue;
+      if (caller == null || op.deviceId != caller) {
+        rejected++;
+        continue;
+      }
       // Server 不做字段级合并（没有第二条写入路径），只做幂等记录，
       // 以免手机端因为「applied 恒为 0」反复重推同一批 op。
       if (store.markOpApplied(op.opId)) applied++;
     }
     if (applied > 0) await store.save();
-    return _json({'applied': applied});
+    return _json({'applied': applied, 'rejected': rejected});
   }
 
   Response _handleOpsPull(Request request) {
@@ -654,10 +725,34 @@ class QuizSyncServer {
     return _json({'ops': <Object>[], 'has_more': false, 'next_cursor': null});
   }
 
+  /// `GET /api/v1/sync/snapshot`：全量实体的**分页**快照
+  /// （`data-model.md` 2.9：返回全量实体（分页））。M47 与 Desktop 版同一口径。
+  ///
+  /// Server 的存储是 JSON（不是库），但会话一多同样不该一次性全塞进一个响应：
+  /// `limit`（默认 200，上限 1000）+ `offset`，题目只带本页涉及的会话。
   Response _handleSnapshot(Request request) {
+    final requested =
+        int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 200;
+    final limit = requested.clamp(1, 1000);
+    final offset =
+        (int.tryParse(request.url.queryParameters['offset'] ?? '') ?? 0)
+            .clamp(0, 1 << 30);
+
+    final all = store.sessions.values.toList()
+      ..sort((a, b) {
+        final byTime = a.session.createdAt.compareTo(b.session.createdAt);
+        return byTime != 0
+            ? byTime
+            : a.session.sessionId.compareTo(b.session.sessionId);
+      });
+    final page = offset >= all.length
+        ? const <StoredSession>[]
+        : all.sublist(offset, (offset + limit).clamp(0, all.length));
+    final hasMore = offset + page.length < all.length;
+
     final sessions = <Map<String, dynamic>>[];
     final questions = <Map<String, dynamic>>[];
-    for (final stored in store.sessions.values) {
+    for (final stored in page) {
       sessions.add(stored.session.toJson());
       questions.addAll(stored.questions.map((q) => q.toJson()));
     }
@@ -670,6 +765,8 @@ class QuizSyncServer {
       // devices 的 toJson 已排除 token_hash。
       'devices': store.devices.values.map((d) => d.info.toJson()).toList(),
       'watermark': 0,
+      'has_more': hasMore,
+      'next_offset': hasMore ? offset + page.length : null,
     });
   }
 
@@ -804,6 +901,8 @@ class QuizSyncServer {
               if (raw is! Map) continue;
               final op = SyncOp.fromJson(Map<String, dynamic>.from(raw));
               if (op.deviceId == store.deviceId) continue;
+              // M47：同 HTTP —— 不能替**别的设备**记账。
+              if (op.deviceId != deviceId) continue;
               store.markOpApplied(op.opId);
               if (op.lamport > maxLamport) maxLamport = op.lamport;
             }

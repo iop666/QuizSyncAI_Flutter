@@ -11,7 +11,7 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
-        // maven.google.com 在部分网络下不可达，必须走阿里云镜像。
+        // maven.google.com 在本机不可达（见 AGENTS.md 第 1 节），必须走阿里云镜像。
         maven { url = uri("https://maven.aliyun.com/repository/google") }
         maven { url = uri("https://maven.aliyun.com/repository/public") }
         maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }

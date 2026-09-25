@@ -1,12 +1,24 @@
-﻿# QuizSync AI one-shot build: pub get + analyze + tests (if present) + both release builds.
+﻿# QuizSync AI one-shot build: pub get + analyze + core tests + both release builds.
 # Any failure aborts with non-zero exit. Usage: powershell -File tools\build_all.ps1
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-# Flutter / Dart 的位置：优先环境变量 FLUTTER / DART，否则用 PATH 里的 flutter / dart。
-# （发布源码不写死任何本机路径。）
-$Flutter = if ($env:FLUTTER) { $env:FLUTTER } else { "flutter" }
-$Dart = if ($env:DART) { $env:DART } else { "dart" }
+
+# M47：工具路径先按 PATH 找，找不到再用本机安装位置 —— 脚本不该只认作者机器的
+# 绝对路径（别人 clone 下来直接跑会找不到 flutter）。
+function Resolve-Tool([string]$name, [string]$fallback) {
+  $cmd = Get-Command $name -ErrorAction SilentlyContinue
+  if (-not $cmd) {
+    $cmd = Get-Command ([System.IO.Path]::GetFileNameWithoutExtension($name)) -ErrorAction SilentlyContinue
+  }
+  if ($cmd) { return $cmd.Source }
+  if (Test-Path $fallback) { return $fallback }
+  Write-Host ("FAILED: 找不到 " + $name + "（PATH 里没有，也不在 " + $fallback + "）") -ForegroundColor Red
+  exit 1
+}
+
+$Flutter = Resolve-Tool "flutter.bat" "D:\Windows\Apps\flutter\flutter\bin\flutter.bat"
+$Dart = Resolve-Tool "dart.bat" "D:\Windows\Apps\flutter\flutter\bin\dart.bat"
 
 function Run-Step([string]$name, [string]$workDir, [string[]]$argv) {
   Write-Host ("==> " + $name) -ForegroundColor Cyan
@@ -33,19 +45,20 @@ Run-Step "ui: analyze"      (Join-Path $RepoRoot "packages\quizsync_ui") @($Flut
 Run-Step "desktop: analyze" (Join-Path $RepoRoot "apps\desktop") @($Flutter, "analyze")
 Run-Step "android: analyze" (Join-Path $RepoRoot "apps\android") @($Flutter, "analyze")
 
-# 发布源码不含测试：没有 test 目录时跳过这一步（开发版带测试，会正常执行）。
-function Run-Tests([string]$name, [string]$workDir, [string]$exe) {
+# 公开的源码包**不含测试目录**（发布版已裁剪）：没有 test 目录时跳过测试步骤，
+# 而不是让 `flutter test` / `dart test` 报「找不到 test 目录」把构建打断。
+function Run-Tests([string]$name, [string]$workDir, [string[]]$argv) {
   if (-not (Test-Path (Join-Path $workDir "test"))) {
     Write-Host ("==> " + $name + "（无 test 目录，跳过）") -ForegroundColor DarkGray
     return
   }
-  Run-Step $name $workDir @($exe, "test")
+  Run-Step $name $workDir $argv
 }
 
-Run-Tests "core: test"    (Join-Path $RepoRoot "packages\quizsync_core") $Dart
-Run-Tests "ui: test"      (Join-Path $RepoRoot "packages\quizsync_ui") $Flutter
-Run-Tests "desktop: test" (Join-Path $RepoRoot "apps\desktop") $Flutter
-Run-Tests "android: test" (Join-Path $RepoRoot "apps\android") $Flutter
+Run-Tests "core: test"    (Join-Path $RepoRoot "packages\quizsync_core") @($Dart, "test")
+Run-Tests "ui: test"      (Join-Path $RepoRoot "packages\quizsync_ui") @($Flutter, "test")
+Run-Tests "desktop: test" (Join-Path $RepoRoot "apps\desktop") @($Flutter, "test")
+Run-Tests "android: test" (Join-Path $RepoRoot "apps\android") @($Flutter, "test")
 
 # 图标字体**不做 tree-shake**（用户反馈 4：应用内大量图标丢失/显示异常）。
 # Flutter 的图标 tree-shaking 在本项目上只保留了约 4.5KB 字形（完整字体 1.6MB），

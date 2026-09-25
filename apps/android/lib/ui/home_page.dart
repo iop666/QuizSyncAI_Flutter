@@ -181,12 +181,17 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
         final appearance = await BallAppearance.load(app.repo);
         await CaptureBridgeCalls.setBallAppearance(
             opacity: appearance.opacity, sizeDp: appearance.sizeDp);
+        // M47：尊重「显示悬浮球」开关（`recognition_settings_page` 里落库的那个）。
+        // 原来这里无条件把球打开，用户关掉球之后只要改任何一项设置就又冒出来。
+        final ballWanted = await BallAppearance.loadEnabled(app.repo);
         final availability = await MethodChannelCaptureSource().availability();
         if (!availability.overlayGranted) {
-          _snack('悬浮窗权限未授予：请到「设置 → 识别模块设置 → 权限设置」开启后再打开悬浮球');
+          if (ballWanted) {
+            _snack('悬浮窗权限未授予：请到「设置 → 识别模块设置 → 权限设置」开启后再打开悬浮球');
+          }
         } else {
-          final shown = await CaptureBridgeCalls.setBallVisible(true);
-          if (!shown) _snack('悬浮球显示失败：请检查悬浮窗权限');
+          final shown = await CaptureBridgeCalls.setBallVisible(ballWanted);
+          if (ballWanted && !shown) _snack('悬浮球显示失败：请检查悬浮窗权限');
         }
         if (useWs) _syncService.start(pairing);
       } else {
@@ -253,15 +258,28 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     // 后台不必每秒去打扰主机；回前台立刻恢复（基线保留，后台期间的结果不会丢）。
     _applyPollingState();
     if (state == AppLifecycleState.resumed) {
+      // M49：回到前台时丢掉积压的提示（后台期间的消息已由系统 Toast 显示过，
+      // 见 `_snack`），否则用户一回来就要把攒下的提示逐条看完。
+      ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
       unawaited(ref.read(serverStatusProvider.notifier).refresh(widget.pairing));
     }
   }
 
+  /// 应用内轻提示。
+  ///
+  /// M49（用户反馈「识别期间攒下的提示，回到应用后一个一个跳出来，直到结束」）：
+  /// 提示是**瞬时**反馈，不该排队。两条规则：
+  /// ① 人在别的应用里时**不入队** —— 悬浮球手势期间 App 在后台，每条提示都已经
+  ///    由 `AndroidCaptureController._notify` 以系统 Toast 显示过（用户当时就看到了），
+  ///    回来再逐条回放纯粹是延迟骚扰；
+  /// ② 在前台也只留**最新一条** —— `ScaffoldMessenger` 的队列是「一条 4 秒」串行
+  ///    播放，连按几次悬浮球就要看上十几秒（`clearSnackBars` 丢掉积压的旧提示）。
   void _snack(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-    }
+    if (!mounted) return;
+    if (_captureController.appInBackground) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// WS 重新连上（含首次连上）后的补齐（M14 第 6 条）。
@@ -384,7 +402,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
                 widget.onRepaired?.call(info);
                 // 用户反馈 M14 第 5 条：配对成功后要「跳转到当前任务」——
                 // 标签已由配对页切到 0，这里再把配对页收掉，用户才真的回到
-                // 主界面（「推入场景仍走 pop」的本意，
+                // 主界面（DECISIONS.md 里「推入场景仍走 pop」的本意，
                 // pop(true) 同时让下面那句 SnackBar 生效）。
                 // `isCurrent` 防止用户在配对请求返回前手动返回后又被弹一次
                 // （那会把整个主界面弹掉）。

@@ -275,7 +275,10 @@ class ApiClient {
           '/api/v1/pair',
           data: req.toJson(),
         ));
-    if (resp.statusCode != 200) _throw(resp);
+    // M47：重复配对按 `protocol.md` 2.2 回 **409 already_paired**，body 里带的
+    // 是**新** token（旧的已作废）—— 和 200 一样要当成成功解析，否则用户
+    // 「重新配对」时会看到一个莫名其妙的错误。
+    if (resp.statusCode != 200 && resp.statusCode != 409) _throw(resp);
     return PairResponse.fromJson(_map(resp.data));
   }
 

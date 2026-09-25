@@ -6,8 +6,13 @@ import 'package:quizsync_core/quizsync_core.dart';
 
 import '../services/desktop_server.dart';
 import '../services/hotkeys.dart';
+import '../services/remote_task.dart';
 import 'analysis_workflow.dart';
 import 'settings.dart';
+
+/// 手机任务状态信号（M44 第 5 条）：类体在 `services/remote_task.dart`，
+/// 这里**再导出**一次，外壳与悬浮窗照旧从本文件 import。
+export '../services/remote_task.dart' show RemoteTaskSignal;
 
 /// 由 main() 在启动时 override；widget 测试注入假实现。
 final dbProvider = Provider<QuizSyncDb>(
@@ -67,19 +72,54 @@ final workflowProvider = Provider<AnalysisWorkflow>((ref) {
 /// API Key 的读取器（真实实现走 flutter_secure_storage；测试注入内存版）。
 /// 手机（安卓）发起的识别会话（用户反馈 12）。
 ///
-/// 服务端收到手机任务时由外壳写入，主界面据此把右侧切到那次识别；
-/// 外壳同时负责把窗口带到前台（手机发起 → Windows 显示识别界面）。
+/// 服务端收到手机任务时由外壳写入，主界面据此把右侧切到那次识别。
+///
+/// M44 第 5 条（用户要求「手机端识别时 Windows 端静默不弹出」）：**不再把窗口
+/// 带到前台** —— 只有窗口本来就在前台时才顺手切到识别界面（见 `_onRemoteTaskStarted`）。
 final remoteTaskSession = ValueNotifier<String?>(null);
 
-/// 三个热键槽位当前设置值的**指纹**（用户反馈 14）。
+/// 手机任务的**状态信号**（M44 第 5 条）：`queued` / `analyzing` / `done` / `failed`。
 ///
-/// 外壳用它判断「热键设置有没有变」：只要任意一个槽位（截屏 / 添加页面 /
-/// 结束多页识别）变了就重新注册全部热键。原来的代码只监听第一个槽位，
-/// 于是改多页热键完全不会重新注册，用户以为「设置了没保存」。
+/// 服务端在 `onTaskUpdateHook` 里写这个值；外壳监听它，转发给悬浮窗 ——
+/// 手机在搜题时，悬浮窗要能显示「手机正在识别…」，并且识别完**跳到新结果**
+/// （之前悬浮窗完全不知道手机那边发生了什么，用户报「悬浮窗不会同步状态与跳转新界面」）。
+///
+/// `ValueNotifier` 记的是最后一个值：外壳挂监听时先读一次当前值，错过早期事件也能补上。
+final remoteTaskState = ValueNotifier<RemoteTaskSignal?>(null);
+
+/// 悬浮窗外观 / 行为的**指纹**（M32）。
+///
+/// 与 `ballSignature` 同样的理由（M15 第 1 条）：`settingsProvider` 是
+/// `ChangeNotifierProvider`，直接 `listen` 时 `prev/next` 是同一个 controller
+/// 实例，前后比较永远相等 —— 必须用 `select` 取出这几个字段的指纹。
+String floatWindowSignature(AppSettings app) => [
+      app.floatWindowEnabled,
+      app.floatWindowTopmost,
+      app.floatWindowOpacity,
+      app.floatWindowScale,
+      app.floatWindowFontScale,
+      // M33：外观（三种预设）与配色取代了 M32 的「比例 + 拉伸边界」。
+      app.floatWindowAspect,
+      app.floatWindowPalette,
+      app.floatWindowLocked,
+      app.floatWindowTheme.name,
+      app.floatWindowMinimal,
+      // 位置也要进签名：设置页的「恢复默认位置」只改这两个字段（x/y = -1），
+      // 不在这里看着它，窗口就不会被重新摆位。
+      app.floatWindowX,
+      app.floatWindowY,
+      app.accent,
+      app.theme.name,
+    ].join('|');
+
+/// 两个热键槽位当前设置值的**指纹**（用户反馈 14）。
+///
+/// 外壳用它判断「热键设置有没有变」：任意一个槽位（截屏识别 / 多页模式）变了就
+/// 重新注册全部热键。原来的代码只监听第一个槽位，于是改多页热键完全不会重新注册，
+/// 用户以为「设置了没保存」。
 String hotkeySettingsSignature(AppSettings app) => [
       app.hotkeyJson ?? '',
-      app.appendHotkeyJson ?? '',
-      app.finishHotkeyJson ?? '',
+      app.multipageHotkeyJson ?? '',
     ].join('|');
 
 /// 悬浮球外观的**指纹**（用户反馈 11；M15 第 1 条修监听方式时抽出来）。
@@ -135,20 +175,25 @@ final hotkeysSuspendedProvider = StateProvider<bool>((ref) => false);
 String? _activeLabelOf(Ref ref, HotkeySlot slot) =>
     ref.watch(hotkeyStatusProvider)[slot]?.activeLabel;
 
-/// 实际生效的截图热键标签（null = 候选键全被其他程序占用）。
+/// 实际生效的截屏识别热键标签（null = 候选键全被其他程序占用）。
 final activeHotkeyProvider =
     Provider<String?>((ref) => _activeLabelOf(ref, HotkeySlot.capture));
 
-/// 多页识别的两个热键（用户需求 4）：追加一页 / 结束并上传。
-final activeAppendHotkeyProvider =
-    Provider<String?>((ref) => _activeLabelOf(ref, HotkeySlot.append));
-final activeFinishHotkeyProvider =
-    Provider<String?>((ref) => _activeLabelOf(ref, HotkeySlot.finish));
+/// 实际生效的多页模式热键标签（M46 第 1 条：多页只有一个键）。
+final activeMultipageHotkeyProvider =
+    Provider<String?>((ref) => _activeLabelOf(ref, HotkeySlot.multipage));
 
 /// 桌面内置服务端控制器（main 注入）。
 final serverControllerProvider = Provider<DesktopServerController>(
     (ref) => throw UnimplementedError(
         'serverControllerProvider must be overridden'));
+
+/// 「连接设备」开关的**真正启停**（M32 用户需求 3；main 注入）。
+///
+/// 服务端启动需要 `imageDir` / provider 注册表 / Key 读取器，这些都只有 `main()`
+/// 里才有，所以设置页只负责改设置值，启停动作交给这里。测试里默认 no-op。
+final connectToggleProvider =
+    Provider<Future<void> Function(bool)>((ref) => (_) async {});
 
 /// 按 providerId 动态分发的包装。
 class _SwitchableProvider extends QuizAiProvider {

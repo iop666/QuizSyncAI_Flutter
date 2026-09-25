@@ -83,7 +83,7 @@ class QuizSyncApp extends ConsumerWidget {
   final CaptureCoordinator coordinator;
 
   /// MaterialApp 的 navigatorKey：托盘/热键等无 context 入口
-  /// 靠它拿到 Navigator 作用域来弹窗（PrivacyDialog 等）。
+  /// 靠它拿到 Navigator 作用域来弹窗（「框选重试」等）。
   final GlobalKey<NavigatorState> navigatorKey;
 
   const QuizSyncApp({

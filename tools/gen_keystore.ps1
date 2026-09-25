@@ -7,8 +7,22 @@ if ($args.Count -lt 4) {
 }
 $out = $args[0]; $alias = $args[1]; $storepass = $args[2]
  $validity = if ($args.Count -ge 4) { $args[3] } else { 10950 }
-# keytool 的位置：优先 $env:JAVA_HOME\bin\keytool.exe，否则用 PATH 里的 keytool。
-$jdk = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME "bin\keytool.exe" } else { "keytool" }
+# M47：keytool 先按 PATH / JAVA_HOME 找，找不到再用本机安装位置。
+$jdk = $null
+$cmd = Get-Command keytool.exe -ErrorAction SilentlyContinue
+if ($cmd) { $jdk = $cmd.Source }
+if (-not $jdk -and $env:JAVA_HOME) {
+  $candidate = Join-Path $env:JAVA_HOME "bin\keytool.exe"
+  if (Test-Path $candidate) { $jdk = $candidate }
+}
+if (-not $jdk) {
+  $fallback = "D:\Windows\Apps\Java\jdk-17.0.18\bin\keytool.exe"
+  if (Test-Path $fallback) { $jdk = $fallback }
+}
+if (-not $jdk) {
+  Write-Host "FAILED: 找不到 keytool（PATH / JAVA_HOME 都没有）" -ForegroundColor Red
+  exit 1
+}
 & $jdk -genkeypair -v `
   -keystore $out -alias $alias `
   -keyalg RSA -keysize 2048 -validity $validity `

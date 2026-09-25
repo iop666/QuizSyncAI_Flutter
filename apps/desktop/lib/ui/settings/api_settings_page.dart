@@ -4,6 +4,7 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 
 import '../../services/shell_open.dart';
 import '../../state/app_scope.dart';
+import '../privacy_dialog.dart';
 
 /// API 配置（M9）：AI 服务、API Key、模型与调用限制。
 /// 原来的「AI 服务」整块搬到这里，功能与落库逻辑完全不变。
@@ -60,8 +61,29 @@ class _ApiSettingsPageState extends ConsumerState<ApiSettingsPage> {
   }
 
   /// 保存 API Key（点保存按钮或在该输入框内按回车触发）。
+  ///
+  /// M34 第 1 条：**隐私告知只在「首次保存 API Key」时提示一次**。
+  /// 识别流程里不再弹它（那时用户已经在别的应用里，弹窗既打断又容易被忽略）；
+  /// 「暂不使用」= 不保存这个 Key，用户看到告知后可以再决定。
   Future<void> _saveKey() async {
     final v = _keyCtrl.text.trim();
+    final settings = ref.read(settingsProvider);
+    if (v.isNotEmpty && !settings.privacyAcknowledged) {
+      final ok = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const PrivacyDialog(),
+      );
+      if (!mounted) return;
+      if (ok != true) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('未确认隐私告知，API Key 没有保存'),
+          duration: Duration(seconds: 3),
+        ));
+        return;
+      }
+      await settings.acknowledgePrivacy();
+    }
     try {
       await ref.read(apiKeyWriterProvider)(v);
       await _loadKeyTail();
@@ -243,10 +265,13 @@ class _ApiSettingsPageState extends ConsumerState<ApiSettingsPage> {
                     child: DropdownButtonFormField<int>(
                       key: const ValueKey('settings-daily-limit'),
                       initialValue: ai.dailyLimit,
-                      decoration: const InputDecoration(suffixText: '次'),
-                      items: const [50, 100, 200, 500, 1000]
+                      decoration: InputDecoration(
+                          suffixText: ai.dailyLimit <= 0 ? null : '次'),
+                      // M44 第 2 条（用户要求）：可以「不设上限」（存 0）。
+                      items: const [0, 50, 100, 200, 500, 1000]
                           .map((v) => DropdownMenuItem(
-                              value: v, child: Text('$v')))
+                              value: v,
+                              child: Text(v == 0 ? '不设上限' : '$v')))
                           .toList(),
                       onChanged: (v) =>
                           _saveAi(ai.copyWith(dailyLimit: v ?? 200)),
@@ -257,7 +282,9 @@ class _ApiSettingsPageState extends ConsumerState<ApiSettingsPage> {
             ),
             SettingsField(
               title: '今日用量',
-              subtitle: '不含缓存命中',
+              subtitle: ai.dailyLimit <= 0
+                  ? '不含缓存命中；当前**不设上限**，用量只做统计'
+                  : '不含缓存命中',
               maxWidth: 480,
               child: Row(
                 children: [
@@ -266,7 +293,9 @@ class _ApiSettingsPageState extends ConsumerState<ApiSettingsPage> {
                   ),
                   const SizedBox(width: SettingsGap.s16),
                   Text(
-                    '$usage / ${ai.dailyLimit} 次',
+                    ai.dailyLimit <= 0
+                        ? '$usage 次'
+                        : '$usage / ${ai.dailyLimit} 次',
                     key: const ValueKey('settings-usage'),
                     style: SettingsType.value(scheme),
                   ),

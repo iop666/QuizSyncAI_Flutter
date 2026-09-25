@@ -12,13 +12,11 @@ dependencies:
   image: ^4.2.0
   archive: ^3.6.1
   dio: ^5.4.0
-  meta: ^1.15.0
   shelf: ^1.4.0
   shelf_router: ^1.1.0
   shelf_web_socket: ^3.0.0
   shelf_multipart: ^2.0.0
   web_socket_channel: ^3.0.0
-  stream_channel: ^2.1.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

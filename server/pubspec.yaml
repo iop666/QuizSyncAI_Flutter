@@ -2,8 +2,8 @@ name: quizsync_server
 description: "QuizSyncAI Server — 功能冻结的 Windows 后台服务：全局热键截屏 → AI 识别 → 通过既有协议把结果推给 Android。纯 Dart CLI，不依赖 Flutter/Desktop。"
 publish_to: 'none'
 
-# 独立版本线：Server 冻结在 1.0.0，不跟随主项目（见 README）。
-version: 1.0.0
+# 独立版本线：Server 冻结在 1.0.x（补丁位可动），不跟随主项目（见 README）。
+version: 1.0.1
 
 environment:
   sdk: ^3.13.0

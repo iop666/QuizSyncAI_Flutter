@@ -20,6 +20,17 @@ class DeviceSettingsPage extends ConsumerStatefulWidget {
   ConsumerState<DeviceSettingsPage> createState() => _DeviceSettingsPageState();
 }
 
+/// 「同一时间只支持一台安卓设备」的说明（M49 用户反馈：设置里要写清楚）。
+///
+/// 这不是随口写的限制：两端 `device_id` 都是固定字面量（安卓 `android-local`、
+/// Windows `windows-local`），配对、token、WS 槽位、在线计数全以它为主键 ——
+/// 第二台手机扫码会**覆盖**同一行的 token hash，第一台立刻掉线（而且手机端
+/// 只有收到 `revoked` 才提示重新配对，它只会显示「电脑未连接」）。所以这里
+/// 明确告诉用户换手机的正确顺序。
+const String kSingleAndroidDeviceNote =
+    '同一时间只支持连接一台安卓设备。换手机时请先在下方「已配对设备」里吊销旧设备，'
+    '再用新手机扫码配对；直接配对新手机，旧手机会立刻掉线并需要重新扫码。';
+
 class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
   String? _lanIp;
   int _refreshTick = 0;
@@ -54,18 +65,89 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
     super.dispose();
   }
 
+  /// 打开 / 关闭局域网连接（M32 用户需求 3）。
+  ///
+  /// 关着的时候内置服务端根本不启动（不监听端口）；打开时才启动 —— Windows 会
+  /// 在这个时候弹防火墙授权窗口，也就是需求里说的「获取网络权限来授权」。
+  Future<void> _toggleConnect(bool value) async {
+    final app = ref.read(settingsProvider).app;
+    await ref.read(settingsProvider).updateApp(app.copyWith(connectEnabled: value));
+    await ref.read(connectToggleProvider)(value);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(value
+            ? '已开启局域网连接：服务启动中，若弹出防火墙提示请选「允许访问」'
+            : '已关闭局域网连接：服务已停止，不再监听任何端口')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final app = ref.watch(settingsProvider).app;
+    final enabled = app.connectEnabled;
     final controller = ref.watch(serverControllerProvider);
     final server = controller.server;
+
+    // 用户需求 3：总开关关着时，下方功能全部不可用（连服务端都不启动）。
+    final switchGroup = SettingsGroup(
+      title: '局域网连接',
+      icon: Icons.wifi_tethering,
+      children: [
+        SettingsRow(
+          key: const ValueKey('settings-connect-switch'),
+          title: '开启连接设备',
+          subtitle: enabled
+              ? (server == null ? '已开启：服务正在启动…' : '已开启：局域网服务运行中')
+              : '已关闭（默认）：不启动服务、不监听任何端口',
+          info: '连接设备默认关闭。关闭时这台电脑不会监听任何端口，手机也连不上；'
+              '打开时才启动内置服务并申请网络权限（Windows 会弹一次防火墙授权，'
+              '请选「允许访问」）。关掉开关会立刻停掉服务，正在连接的手机也会断开。',
+          trailing: SettingsSwitch(
+            value: enabled,
+            onChanged: _toggleConnect,
+          ),
+        ),
+        if (!enabled)
+          const SettingsNote(
+            text: '连接设备已关闭：下面的配对码、二维码与设备列表都不可用。'
+                '需要手机上传题目时，先打开这个开关并完成配对。',
+            warn: false,
+          ),
+      ],
+    );
+
+    if (!enabled) {
+      return SettingsSection(
+        title: '连接设备',
+        description: '手机与电脑需在同一局域网；打开开关并扫码配对后，'
+            '手机就能把题目发到这台电脑识别。',
+        children: [
+          switchGroup,
+          SettingsGroup(
+            title: '配对与设备',
+            icon: Icons.lock_outline,
+            showDividers: false,
+            children: const [
+              SettingsRow(
+                key: ValueKey('settings-connect-disabled'),
+                title: '当前不可用',
+                subtitle: '打开上面的「开启连接设备」后，这里会显示配对码、二维码与已配对设备',
+              ),
+            ],
+          ),
+          const SettingsNote(text: kSingleAndroidDeviceNote),
+        ],
+      );
+    }
 
     if (server == null) {
       return SettingsSection(
         title: '连接设备',
         description: '手机与电脑需要连在同一个局域网。',
         children: [
+          switchGroup,
           SettingsGroup(
             title: '当前连接状态',
             icon: Icons.lan_outlined,
@@ -83,6 +165,7 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
               ),
             ],
           ),
+          const SettingsNote(text: kSingleAndroidDeviceNote),
         ],
       );
     }
@@ -91,7 +174,10 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
     final payload = controller.qrPayload(_lanIp ?? '127.0.0.1');
     final remain = server.pairingExpiresAt - nowMs();
     final remainSeconds = remain <= 0 ? 0 : (remain / 1000).ceil();
-    final online = server.connectedCount;
+    // M47（用户实测反馈）：「在线」判据不能只看 WS 连接数 —— 手机端在前台时是
+    // 每秒一次的 HTTP 轮询（HostStatusPoller），不建 WS，原来的 `connectedCount`
+    // 会让设置页一直停在「等待手机连接」。
+    final online = server.activeDeviceCount;
     final devicesAsync = ref.watch(_devicesProvider(_refreshTick));
     final devices = devicesAsync.valueOrNull ?? const <DeviceInfo>[];
 
@@ -99,6 +185,7 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
       title: '连接设备',
       description: '手机与电脑需在同一局域网；扫码或手动输入地址 + 配对码即可配对。',
       children: [
+        switchGroup,
         SettingsGroup(
           title: '当前连接状态',
           children: [
@@ -163,6 +250,8 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
                 ),
           ],
         ),
+        // M49：「同时只能一台安卓」的说明（放在整段最后，服务未启动时也看得到）。
+        const SettingsNote(text: kSingleAndroidDeviceNote),
       ],
     );
   }

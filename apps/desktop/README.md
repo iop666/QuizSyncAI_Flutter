@@ -1,17 +1,6 @@
-# quizsync_desktop
+# AI 双端搜题 · Windows 端（quizsync_desktop）
 
-A new Flutter project.
+Flutter Windows 桌面端：全局热键截屏 → 多模态 AI 解题 → 结果落库并同步到手机；
+内置局域网服务端（shelf），手机配对后通过它上传图片、拉取结果。
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+构建与运行见仓库根 `README.md`。

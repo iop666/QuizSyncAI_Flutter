@@ -67,8 +67,12 @@ IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
 //
 // M18 第 1 条：**1.0.0 就是正式版**，前面的序号都只是内部出包序号，
 // 界面（设置 → 关于）与 exe 属性里都不出现它。
-#define VERSION_AS_NUMBER 1,0,0,0
-#define VERSION_AS_STRING "1.0.0"
+//
+// M32 用户需求 6：Windows 端产品版本升到 **1.0.1**（安卓端本轮不动、后续统一更新）。
+// M46 第 4 条：双端统一到 **1.1.0**。最后一位（build）仍是 0，
+// 不进 exe 属性也不进界面。
+#define VERSION_AS_NUMBER 1,1,0,0
+#define VERSION_AS_STRING "1.1.0"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION VERSION_AS_NUMBER
@@ -87,11 +91,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
+            VALUE "CompanyName", "iop666" "\0"
             VALUE "FileDescription", "AI 双端搜题" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "quizsync_desktop" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 iop666" "\0"
             VALUE "OriginalFilename", "quizsync_desktop.exe" "\0"
             VALUE "ProductName", "AI 双端搜题" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

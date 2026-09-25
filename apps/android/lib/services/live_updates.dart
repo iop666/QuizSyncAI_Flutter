@@ -147,6 +147,12 @@ class LiveUpdates {
 
   /// task_result 带完整会话与题目：落本地库后由宿主 invalidate provider，
   /// 历史列表与结果页就会自动刷新（用户不再需要手动下拉）。
+  ///
+  /// M47：题目落库改走 `applyAnalysisResult`（`data-model.md` 2.3 的落库入口），
+  /// 不再逐个 `upsertQuestion` —— 主机重分析一条**手机端改过答案**的记录时，
+  /// 前者会保住 `answer_edited` / `analysis_edited` 的字段，后者会把用户的手改
+  /// 直接盖掉（而且本机随后还会把被盖掉的值当成本地改动同步回主机）。
+  /// 顺带把「本轮已经不存在的题目」按同一入口软删除，两端题目集合保持一致。
   Future<void> _taskResult(Map<String, dynamic> msg) async {
     final raw = msg['session'];
     if (raw is! Map) return;
@@ -162,9 +168,20 @@ class LiveUpdates {
         questions.add(Question.fromJson(Map<String, dynamic>.from(q)));
       }
     }
-    for (final q in questions) {
-      await app.repo.upsertQuestion(q.copyWith(sessionId: session.sessionId));
-    }
+    await app.repo.applyAnalysisResult(
+      sessionId: session.sessionId,
+      input: AnalysisResultInput(
+        aiProvider: session.aiProvider,
+        aiModel: session.aiModel,
+        promptVersion: session.promptVersion,
+        rawResponse: session.rawResponse,
+        latencyMs: session.latencyMs,
+        cached: session.cached,
+        questions: [
+          for (final q in questions) q.copyWith(sessionId: session.sessionId),
+        ],
+      ),
+    );
 
     // 多页页序（用户需求 4）：结果里的 image_hashes 是权威顺序。
     final rawHashes = map['image_hashes'];

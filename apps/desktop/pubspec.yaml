@@ -1,9 +1,11 @@
 name: quizsync_desktop
 description: "QuizSync AI — Windows 端（截屏采集、AI 分析、内置服务端）。"
 publish_to: 'none'
-# 1.0.0 = 正式版（M18 第 1 条）。`+N` 只是内部出包序号，不进 exe 属性、
-# 也不进界面（见 windows\runner\Runner.rc 与 state\app_info.dart）。
-version: 1.0.0+12
+# 1.0.1 = Windows 端第二次正式发布（M32 用户需求 6；M33 是同一版本的续改，
+# 产品版本不变，只顶出包序号；安卓端仍是 1.0.0，等后续统一更新）。
+# `+N` 只是内部出包序号，不进 exe 属性、也不进界面
+# （见 windows\runner\Runner.rc 与 state\app_info.dart）。
+version: 1.1.0+33
 
 environment:
   sdk: ^3.13.0
@@ -11,7 +13,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
   quizsync_core:
     path: ../../packages/quizsync_core
   quizsync_ui:
@@ -26,7 +27,6 @@ dependencies:
   image: ^4.2.0
   path_provider: ^2.1.4
   desktop_drop: ^0.4.4
-  cross_file: ^0.3.4
   qr_flutter: ^4.1.0
 
 dev_dependencies:

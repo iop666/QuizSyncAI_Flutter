@@ -57,8 +57,15 @@ class BallGestureTracker {
   /// 按住多久算长按。
   static const int longPressMs = 500;
 
-  /// 位移超过多少像素算拖动。
-  static const double clickSlop = 8;
+  /// 位移超过多少**逻辑**像素算拖动。
+  ///
+  /// M47：这个值以前直接拿去和 `GetCursorPos` 的**物理**像素比 —— 150% / 200%
+  /// 缩放下实际只剩 5.3 / 4 逻辑像素，手一抖就被判成拖动，单击识别很难点中。
+  /// 现在由调用方按当前 DPR 折算成物理阈值写进 [clickSlop]。
+  static const double clickSlopLogical = 8;
+
+  /// 本次手势的物理像素阈值（调用方按 DPR 设置；默认等于逻辑值，单测直接用它）。
+  double clickSlop = clickSlopLogical;
 
   bool _pressed = false;
   bool _moved = false;
@@ -102,7 +109,7 @@ class BallGestureTracker {
 
 /// Windows 悬浮球（用户反馈 11）：**原生分层窗口** + `UpdateLayeredWindow`。
 ///
-/// 为什么不用第二个 Flutter 引擎：本项目对安卓端的要求是「悬浮球用原生
+/// 为什么不用第二个 Flutter 引擎：AGENTS.md 对安卓端的要求是「悬浮球用原生
 /// View，不要在 overlay 里跑第二个 Flutter 引擎」（生命周期与内存代价）。
 /// Windows 侧同理——一个 `WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_NOACTIVATE`
 /// 的 popup 窗口，把预乘 BGRA 位图交给 DWM 合成，不需要引擎参与渲染。
@@ -333,22 +340,31 @@ class FloatingBall {
       return;
     }
 
-    final data = await rootBundle.load(_state.asset);
+    // M47：`rootBundle.load` 之后 `_state` / 外观字段可能已经变了，而 `_cacheKey`
+    // 每次都读「此刻」的字段 —— 旧状态的图会被存进**新键**，于是错误的三态图
+    // 一直用到尺寸/描边再变一次为止（异步竞态）。这里把本次渲染要用的状态、
+    // 颜色与缓存键**先固定成快照**，加载与回写都用同一份。
+    final state = _state;
+    final alphaScale = _opacity;
+    final strokeOpacity = _strokeOpacity;
+    final insetPx = _strokeInsetPx;
+    final key = _cacheKey(size);
+
+    final data = await rootBundle.load(state.asset);
     final decoded = img.decodePng(data.buffer
         .asUint8List(data.offsetInBytes, data.lengthInBytes));
-    if (decoded == null) throw StateError('悬浮球资源解码失败：${_state.asset}');
+    if (decoded == null) throw StateError('悬浮球资源解码失败：${state.asset}');
     // 球按**不含描边**的边长缩放，描边是长在球外面的（用户反馈 M16 第 1 条）。
     final art = img.copyResize(decoded,
         width: ballPx, height: ballPx, interpolation: img.Interpolation.cubic);
     final frame = composeBallFrame(
       art: art,
       strokePx: strokePx,
-      strokeColor: darkenBallColor(_state.mainColor),
-      strokeOpacity: _strokeOpacity,
-      insetPx: _strokeInsetPx,
+      strokeColor: darkenBallColor(state.mainColor),
+      strokeOpacity: strokeOpacity,
+      insetPx: insetPx,
     );
     final out = _bits.asTypedList(size * size * 4);
-    final alphaScale = _opacity;
     var i = 0;
     for (var y = 0; y < size; y++) {
       for (var x = 0; x < size; x++) {
@@ -362,8 +378,14 @@ class FloatingBall {
         out[i++] = a;
       }
     }
-    _remember(key: _cacheKey(size), pixels: out);
+    _remember(key: key, pixels: out);
     _pixelsDirty = false;
+    // 加载期间状态/外观又变了：本帧已经过期，按最新状态再出一帧，否则屏幕上会
+    // 停在旧状态图上（两次 `_render` 交错的顺序不定，谁后写谁留在屏幕上）。
+    if (_cacheKey(size) != key) {
+      _pixelsDirty = true;
+      await _render();
+    }
   }
 
   /// 缓存键：状态图 + 尺寸 + 描边 + 整体透明度，任一变化都要重画。
@@ -574,6 +596,9 @@ class FloatingBall {
     calloc.free(rect);
     _dragging = true;
     // 只记下按下时刻；**不**起计时器（见 BallGestureTracker 的注释）。
+    // M47：阈值按当前 DPR 折算 —— 手势坐标是物理像素，而「多少算拖动」是逻辑像素。
+    _gesture.clickSlop =
+        BallGestureTracker.clickSlopLogical * _devicePixelRatio;
     _gesture.press(x: _downX, y: _downY, nowMs: _nowMs);
     SetCapture(hwnd);
   }

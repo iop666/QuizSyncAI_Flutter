@@ -1,12 +1,30 @@
 ﻿# Package portable zip + Inno Setup installer when ISCC.exe is available.
 param(
-  [string]$Version = "1.0.0",
+  # M47：默认不写死版本 —— 留空时从 apps\desktop\pubspec.yaml 读（唯一来源）。
+  [string]$Version = "",
   [string]$OutDir = "dist"
 )
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-# Flutter 的位置：优先环境变量 FLUTTER，否则用 PATH 里的 flutter。
-$Flutter = if ($env:FLUTTER) { $env:FLUTTER } else { "flutter" }
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+  $pubspec = Join-Path $RepoRoot "apps\desktop\pubspec.yaml"
+  $m = [regex]::Match((Get-Content -Raw -Encoding UTF8 $pubspec), "(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)")
+  if (-not $m.Success) { Write-Host "FAILED: 读不出 apps\desktop\pubspec.yaml 的版本号" -ForegroundColor Red; exit 1 }
+  $Version = $m.Groups[1].Value
+}
+# M47：flutter 先按 PATH 找，找不到再用本机安装位置。
+$Flutter = $null
+$cmd = Get-Command flutter.bat -ErrorAction SilentlyContinue
+if ($cmd) { $Flutter = $cmd.Source }
+if (-not $Flutter) {
+  $fallback = "D:\Windows\Apps\flutter\flutter\bin\flutter.bat"
+  if (Test-Path $fallback) { $Flutter = $fallback }
+}
+if (-not $Flutter) {
+  Write-Host "FAILED: 找不到 flutter（PATH 里没有）" -ForegroundColor Red
+  exit 1
+}
 
 $releaseDir = Join-Path $RepoRoot "apps\desktop\build\windows\x64\runner\Release"
 $exe = Join-Path $releaseDir "quizsync_desktop.exe"
@@ -153,13 +171,15 @@ try {
 
 $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 if (-not $iscc) {
-  foreach ($candidate in @("<Inno Setup>\ISCC.exe", "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+  foreach ($candidate in @("D:\Windows\Apps\InnoSetup\ISCC.exe", "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
     if (Test-Path $candidate) { $iscc = Get-Item $candidate; break }
   }
 }
 if ($iscc) {
   Write-Host ("Compiling installer with " + $iscc.FullName + " ...")
-  & $iscc.FullName (Join-Path $RepoRoot "tools\installer.iss")
+  # M47：版本号由本脚本传进去，installer.iss 不再自己写死一份（它保留了默认值兜底，
+  # 单独手工编译时也能用）。
+  & $iscc.FullName "/DAppVersion=$Version" (Join-Path $RepoRoot "tools\installer.iss")
   if ($LASTEXITCODE -ne 0) { Write-Host "installer compile FAILED"; exit 1 }
   $setupPath = Join-Path $out ("quizsync-windows-setup-" + $Version + ".exe")
   $setupSize = (Get-Item $setupPath).Length / 1MB

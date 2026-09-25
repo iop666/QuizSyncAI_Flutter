@@ -20,7 +20,7 @@ class CapturedScreen {
   });
 }
 
-/// GDI BitBlt 截屏（SPEC 2.1）。
+/// GDI BitBlt 截屏（SPEC 2.1 / AGENTS.md 技术栈）。
 /// - 截取**鼠标所在显示器**的全屏；
 /// - Per-Monitor DPI V2：采集线程临时切换 DPI 感知上下文，保证物理像素坐标；
 /// - 截屏前隐藏主窗口由调用方负责（[hideWindowWhile]）。

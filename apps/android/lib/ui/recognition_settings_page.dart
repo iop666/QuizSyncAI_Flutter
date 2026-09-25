@@ -195,10 +195,12 @@ class _RecognitionSettingsPageState
             children: [
               Text(
                 // 用户需求 5：明确写出「长按截一张 → 松手 → 再长按下一张 → 最后短按收尾」。
+                // M49：短按只提交已截取的页（不再补截一张），与 Windows 端热键一致。
                 key: const ValueKey('multipage-help'),
                 '一题多页：「长按」悬浮球截取第 1 张（松手即完成一页）→ 再「长按」截取第 2 张'
                 ' → 以此类推（最多 ${settings.multiPageLimit} 张）→ 最后「短按」悬浮球收尾，'
-                '本次所有截图会作为一道题一起识别。',
+                '本次所有截图会作为一道题一起识别。收尾的短按只提交已经截好的页，'
+                '不会再多截一张；抓满上限会自动提交。',
                 style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant, height: 1.6),
               ),
@@ -408,6 +410,8 @@ class _RecognitionSettingsPageState
       }
     }
     final shown = await CaptureBridgeCalls.setBallVisible(v);
+    // M47：开关要**落库** —— 否则重启或任何一次设置变更都会把球又打开。
+    await BallAppearance.saveEnabled(ref.read(androidAppProvider).repo, v);
     if (!mounted) return;
     setState(() => _ballEnabled = v && (shown || !v));
     if (v && !shown) {

@@ -359,8 +359,14 @@ Future<List<ImageMeta>> imagesMissingFile(CoreRepository repo,
 /// （文本结果与元数据永久保留）。[onDelete] 由宿主注入真正的删除动作
 /// （同步层保持无 I/O）；为 null 时只断开关联，磁盘文件会残留。
 /// [maxFiles] <= 0 表示**不设限**（用户需求 5）。
+///
+/// [keep] 里的 hash **永不删除**（M47）：安卓端离线队列里的任务补跑时必须能从
+/// 磁盘取到原图，而队列上限（20 条）与本地上限（20 张）是同一个量级 ——
+/// 按时间剪最旧会把队首任务的原图先剪掉，那条任务从此每次补跑都失败。
 Future<int> pruneImageFiles(CoreRepository repo, String Function(String hash) pathOf,
-    {int maxFiles = 200, Future<void> Function(String path)? onDelete}) async {
+    {int maxFiles = 200,
+    Future<void> Function(String path)? onDelete,
+    Set<String> keep = const {}}) async {
   if (maxFiles <= 0) return 0;
   final rows = await repo.db.customSelect(
     'SELECT hash FROM images WHERE local_path IS NOT NULL '
@@ -368,10 +374,14 @@ Future<int> pruneImageFiles(CoreRepository repo, String Function(String hash) pa
     variables: const [],
     readsFrom: {repo.db.images},
   ).get();
-  if (rows.length <= maxFiles) return 0;
-  final excess = rows.length - maxFiles;
+  final candidates = [
+    for (final r in rows)
+      if (!keep.contains(r.read<String>('hash'))) r.read<String>('hash'),
+  ];
+  if (candidates.length <= maxFiles) return 0;
+  final excess = candidates.length - maxFiles;
   for (var i = 0; i < excess; i++) {
-    final hash = rows[i].read<String>('hash');
+    final hash = candidates[i];
     final path = pathOf(hash);
     if (onDelete != null) {
       try {

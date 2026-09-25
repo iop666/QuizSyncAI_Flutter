@@ -7,12 +7,16 @@ import '../../state/app_info.dart';
 /// 关于（M9 新增；用户反馈 4/6 修订）：版本、技术栈、**字体与许可**、开源许可。
 ///
 /// 只显示项目里真实存在的信息：应用名与版本取自 `state/app_info.dart`
-/// （与 pubspec / 打包脚本同一个号），技术栈取自项目实测结论，
+/// （与 pubspec / 打包脚本同一个号），技术栈取自 AGENTS.md 实测结论，
 /// 开源许可走 Flutter 自带的 LicenseRegistry。
 ///
 /// M17 第 3 条：**补上项目地址**（用户明确要求标 GitHub）。早期这里写着
 /// 「本项目没有远端仓库，所以不摆 GitHub 链接」，现在仓库已经有了：
 /// `https://github.com/iop666/QuizSyncAI`。
+///
+/// M46 第 3 条：独立的「赞助」页整页删除，赞助支持作为**最后一组**放在这里
+/// （用户要求「在设置关于的最下面加入赞助支持模块，填上我的爱发电地址」）。
+/// M46 第 7 条：这一页不再写「构建脚本 / 每一轮改动」这类构建过程介绍。
 class AboutSettingsPage extends StatelessWidget {
   const AboutSettingsPage({super.key});
 
@@ -69,7 +73,7 @@ class AboutSettingsPage extends StatelessWidget {
               key: const ValueKey('about-github'),
               title: 'GitHub 仓库',
               subtitle: kGitHubUrl,
-              info: '仓库名 $kAppNameEn：源码、构建脚本与每一轮改动的说明都在这里。',
+              info: '仓库名 $kAppNameEn：项目源码与使用说明都在这里。',
               trailing: TextButton.icon(
                 key: const ValueKey('about-open-github'),
                 onPressed: () => openExternal(kGitHubUrl),
@@ -149,6 +153,29 @@ class AboutSettingsPage extends StatelessWidget {
         ),
         const SettingsNote(
           text: '当前版本不带自动更新：升级直接安装新版安装包即可，卸载不会删除你的数据。',
+        ),
+        // M46 第 3 条（用户要求）：赞助支持放在**本页最下面**（所以上面那条说明
+        // 要排在它前面，不能让赞助模块后面再挂一句话）。
+        SettingsGroup(
+          title: '赞助支持',
+          icon: Icons.favorite_outline,
+          description: '这个工具完全免费、开源，不弹广告，也不上传你的题目与截图；'
+              '所有识别结果与图片都只存在你自己的电脑上。',
+          children: [
+            SettingsRow(
+              key: const ValueKey('about-sponsor'),
+              title: '爱发电',
+              subtitle: kSponsorUrl,
+              info: '如果它帮你省下了一点时间，可以请作者喝一杯咖啡，金额随意。'
+                  '点「打开」会用系统默认浏览器进入爱发电主页。',
+              trailing: TextButton.icon(
+                key: const ValueKey('about-open-sponsor'),
+                onPressed: () => openExternal(kSponsorUrl),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('打开'),
+              ),
+            ),
+          ],
         ),
       ],
     );

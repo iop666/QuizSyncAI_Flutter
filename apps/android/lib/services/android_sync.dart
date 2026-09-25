@@ -151,12 +151,21 @@ class AndroidSync {
 
   /// 固定只保留最近的 [kAndroidLocalImageLimit] 张本地原图，多出来的删最旧的
   /// （文本结果与元数据永久保留）。返回删除张数。
+  ///
+  /// M47：**离线队列里任务引用的原图不参与清理** —— 队列上限 20 条、本地上限
+  /// 20 张，两者一个量级，按时间剪最旧会把队首任务的原图先剪掉，那条任务之后
+  /// 每次补跑都因为「取不到原图」永久失败。
   Future<int> pruneImages() async {
     try {
+      final keep = <String>{};
+      for (final task in await app.queue.queuedTasks()) {
+        keep.addAll(OfflineQueue.parsePayload(task).imageHashes);
+      }
       return await pruneImageFiles(
         app.repo,
         (hash) => '$imageDir/$hash.jpg',
         maxFiles: kAndroidLocalImageLimit,
+        keep: keep,
         onDelete: (path) async {
           final f = File(path);
           if (await f.exists()) await f.delete();

@@ -5,11 +5,19 @@
 # `dist\` kept whatever APK was copied there by hand earlier. The Windows side
 # packages itself (package_windows.ps1) and the Android side silently went stale.
 param(
-  [string]$Version = "1.0.0",
+  # M47：默认不写死版本 —— 留空时从 apps\android\pubspec.yaml 读（唯一来源）。
+  [string]$Version = "",
   [string]$OutDir = "dist"
 )
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+  $pubspec = Join-Path $RepoRoot "apps\android\pubspec.yaml"
+  $m = [regex]::Match((Get-Content -Raw -Encoding UTF8 $pubspec), "(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)")
+  if (-not $m.Success) { Write-Host "FAILED: 读不出 apps\android\pubspec.yaml 的版本号" -ForegroundColor Red; exit 1 }
+  $Version = $m.Groups[1].Value
+}
 $srcDir = Join-Path $RepoRoot "apps\android\build\app\outputs\flutter-apk"
 $out = Join-Path $RepoRoot $OutDir
 New-Item -ItemType Directory -Force -Path $out | Out-Null

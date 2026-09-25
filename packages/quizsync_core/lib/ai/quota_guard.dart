@@ -6,6 +6,9 @@ import '../util/ids.dart';
 /// 每日配额（`ai-contract.md` 第 4 节）：
 /// 默认 200 次真实调用（**不含缓存命中**）；达到上限明确提示，不静默失败。
 /// 每次真实调用记录到 `ai_usage` 表。
+///
+/// M44 第 2 条（用户要求）：[dailyLimit] **≤ 0 表示不设上限** —— 仍然照常记录用量
+/// （统计用），但永不拦住调用。
 class QuotaGuard {
   final QuizSyncDb db;
   final int dailyLimit;
@@ -13,6 +16,9 @@ class QuotaGuard {
 
   QuotaGuard(this.db, {this.dailyLimit = 200, int Function()? now})
       : now = now ?? nowMs;
+
+  /// 是否「不设上限」（设置里选的那一项）。
+  bool get unlimited => dailyLimit <= 0;
 
   DateTime _startOfToday() {
     final ts = DateTime.fromMillisecondsSinceEpoch(now());
@@ -30,7 +36,8 @@ class QuotaGuard {
     return rows.first.read<int>('c');
   }
 
-  Future<bool> get canCall async => await usedToday() < dailyLimit;
+  Future<bool> get canCall async =>
+      unlimited || await usedToday() < dailyLimit;
 
   Future<void> recordUsage({
     required String model,
