@@ -2,7 +2,7 @@ import 'package:flutter/services.dart'
     show KeyboardKey, LogicalKeyboardKey, PhysicalKeyboardKey;
 import 'package:hotkey_manager/hotkey_manager.dart';
 
-/// 全局热键的**纯逻辑**层（用户反馈 6：重写热键模块）。
+/// 全局热键的**纯逻辑**层。
 ///
 /// 这里不碰 isolate、不碰窗口，只做三件事：
 ///   1. 键 → Win32 虚拟键码（VK）的映射（逻辑键与**物理键**都要认）；
@@ -13,11 +13,10 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 /// `_setupHotkey` 只认 `LogicalKeyboardKey` → 用户自定义的快捷键一律被判成
 /// 「不支持」并悄悄回退到默认候选键（表现就是「热键设置了不生效」）。
 ///
-/// ## M46 第 1 条：热键只留**两个**，默认 F8 / F9
+/// ## 热键只留**两个**，默认 F8 / F9
 ///
-/// 用户要求「只有两个热键，默认截屏识别为 F8；进入多页模式并截取第一张为 F9」，
-/// 并明确「截屏逻辑和 server 类似」—— 服务端（`server/lib/src/capture_flow.dart`）
-/// 就是这两个动作的语义，这里把它搬到桌面端：
+/// 热键只有两个：默认截屏识别为 F8，进入多页模式并截取第一张为 F9。
+/// 截屏语义与 `server/lib/src/capture_flow.dart` 保持一致，把它搬到桌面端：
 ///   * **截屏识别（F8）**：不在多页模式 → 截一张立刻识别；已在多页模式 → **结束多页**，
 ///     把已抓的图一起上传识别（**不再多截一张**）；
 ///   * **多页模式（F9）**：第一下进入多页并抓第 1 张，继续按追加；抓满上限
@@ -35,7 +34,7 @@ const int kModWin = 0x0008;
 
 /// 热键用途。每个槽位各自注册、互不影响（RegisterHotKey 的 id 是线程级的）。
 ///
-/// M46 第 1 条：**只有两个**（用户要求「就是只有两个热键」）。
+/// **只有两个**。
 enum HotkeySlot {
   capture('截屏识别', '截取鼠标所在的那块屏幕立刻识别；已在多页模式里时＝结束多页并上传已抓的图'),
   multipage('多页模式', '按第一下进入多页并抓第一张，继续按追加；抓满 6 张自动上传识别');
@@ -52,7 +51,7 @@ enum HotkeySlot {
       };
 }
 
-/// 一次热键触发该做什么（M46 第 1 条）。
+/// 一次热键触发该做什么。
 ///
 /// 抽成纯函数是为了**能单测**：这几条语义（什么时候单张、什么时候结束多页、
 /// 什么时候算满）就是这个里程碑的核心逻辑，不能只写在窗口回调里。
@@ -83,7 +82,7 @@ CaptureIntent intentOfMultipageHotkey({
 }) =>
     staged >= limit ? CaptureIntent.multipageFull : CaptureIntent.multipagePage;
 
-/// 抓完一张之后要不要**立刻自动上传识别**（用户要求：抓满第 6 张就自动识别）。
+/// 抓完一张之后要不要**立刻自动上传识别**。
 bool shouldAutoUploadAfterCapture({
   required int staged,
   required int limit,
@@ -177,8 +176,8 @@ class HotkeyCandidate {
 
 /// 每个槽位的默认候选键，按优先级排列。
 ///
-/// M46 第 1 条：默认就是 **F8 / F9**（用户明确要求）。单按功能键不会抢走普通
-/// 打字，所以可以不带修饰键；但它们也可能被别的程序占用（本机实测老默认键
+/// 默认就是 **F8 / F9**。单按功能键不会抢走普通
+/// 打字，所以可以不带修饰键；但它们也可能被别的程序占用（老默认键
 /// `Ctrl+Alt+Q` 就被小米云服务占着），所以后面仍保留带修饰键的候选键，
 /// 注册失败时按顺序往下试（并且把真实生效的键显示在设置页与托盘上）。
 const Map<HotkeySlot, List<HotkeyCandidate>> kHotkeyCandidates = {
@@ -296,7 +295,7 @@ String vkLabel(int vk) {
 
 /// 是否功能键 F1–F12。
 ///
-/// M46 第 1 条：默认热键是**单按** F8/F9，所以「必须带修饰键」这条规则要给
+/// 默认热键是**单按** F8/F9，所以「必须带修饰键」这条规则要给
 /// 功能键开个口子（单按字母/数字确实会抢走普通输入，单按 F1–F12 不会）。
 bool isFunctionKeyVk(int vk) => vk >= 0x70 && vk <= 0x7b;
 
@@ -357,7 +356,7 @@ String hotkeyLabelOf(HotKey hk) {
 ///  - 主键不能是修饰键本身；
 ///  - 主键必须是本程序认得的键（见 [vkOfKey]）；
 ///  - 除 F1–F12 外**至少要有一个修饰键**（单按字母/数字会把普通打字全抢走）。
-///    M46 第 1 条：默认热键就是单按 F8 / F9，所以功能键放行。
+///    默认热键就是单按 F8 / F9，所以功能键放行。
 String? hotkeyRejectReason(HotKey hk) {
   final pressedIsModifier = HotKeyModifier.values
       .any((m) => m.physicalKeys.contains(_physicalOf(hk)));
@@ -439,16 +438,16 @@ abstract class HotkeyRegistrar {
   Future<void> unregister({String? slot});
 }
 
-/// 把一次热键动作包一层「现场闸门」（M31 重写）。
+/// 把一次热键动作包一层「现场闸门」（ 重写）。
 ///
 /// [blocked] 在**真正触发的那一刻**才被求值，返回 true 就丢弃这一次触发。
 ///
 /// ## 为什么不是「进热键设置页就 `unregister()`」
 ///
-/// M30 的实现是「热键设置页打开 → 注销全部热键；离开页面 → 重新注册」，前提是
+///  的实现是「热键设置页打开 → 注销全部热键；离开页面 → 重新注册」，前提是
 /// **页面一定会被卸载**。实测这个前提不成立（用户报「只有在点进那个页面时不会
 /// 触发，其它地方都得能用」）：窗口收进托盘 / 窗口最小化 / 页面还挂在树上时页面
-/// 不会被 dispose，于是 `hotkeysSuspendedProvider` 一直是 true —— M30 又把暂停
+/// 不会被 dispose，于是 `hotkeysSuspendedProvider` 一直是 true ——  又把暂停
 /// 做成了「权威」（暂停期间连重新注册都被跳过），热键就被**永久**锁死，用户在
 /// 页面上看不出异常（那里本来就不该触发），换到别的程序里按同样毫无反应。
 ///

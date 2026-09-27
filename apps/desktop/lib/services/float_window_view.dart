@@ -1,10 +1,10 @@
-/// Windows 悬浮窗的**窗口外观层**（M33 重写 / M34 修订）：纯 Dart 的布局 + 离屏渲染。
+/// Windows 悬浮窗的**窗口外观层**（ 重写 /  修订）：纯 Dart 的布局 + 离屏渲染。
 ///
 /// 分工：题目内容由 `float_window_content.dart` **用 TextPainter 直接排版**
-/// （M34 第 8 条：离屏渲染整张 `QuestionCard` 虽然格式最全，但每帧都要走一遍
+/// （离屏渲染整张 `QuestionCard` 虽然格式最全，但每帧都要走一遍
 /// widget → 位图管线，实测悬浮窗明显卡顿，改回文本为主 + 明显的题目轮廓），
 /// 这一层负责 ① 顶部第一栏（图标按钮 + 识别状态）、② 底部 **Dock 栏**
-/// （M34 第 4 条：悬停放大的两个识别按钮）、③ 识别中提示、
+/// （悬停放大的两个识别按钮）、③ 识别中提示、
 /// ④ 把内容图元按滚动位置裁进内容区。
 ///
 /// 布局与命中判定**共用同一份图元列表**（带 id 的图元就是按钮），并把
@@ -22,7 +22,7 @@ import 'package:quizsync_ui/quizsync_ui.dart'
 
 /// 悬浮窗里的按钮 id（原生窗口把点击换算成这些 id，Dart 侧派发动作）。
 abstract final class FloatAction {
-  /// 顶部：下一条 / 上一条识别结果（M34 第 3 条：两者位置互换，
+  /// 顶部：下一条 / 上一条识别结果（两者位置互换，
   /// 现在右边是「下一条」，读起来就是 ◀ ▶）。
   static const String next = 'next';
   static const String prev = 'prev';
@@ -44,7 +44,7 @@ abstract final class FloatAction {
 
   /// 底部 Dock（**只在默认模式出现**）：复制**这一次识别的全部内容**。
   ///
-  /// 用户口径（M43 第 2 条）：「修改功能为复制识别内容，点击直接复制本次识别的内容」，
+  /// 用户口径：「修改功能为复制识别内容，点击直接复制本次识别的内容」，
   /// 而且它排在三个按钮的**最后一个**。
   static const String copyContent = 'copy-content';
 
@@ -90,7 +90,7 @@ class FloatNode {
   /// 可点击元素的 id（[FloatAction] 里的常量）；null = 不可点。
   final String? id;
 
-  /// 这个文本图元属于哪道题（M42：极简模式的纯文本面板一题一个图元，
+  /// 这个文本图元属于哪道题（极简模式的纯文本面板一题一个图元，
   /// 拖选与「复制本题答案」都靠它认题）。
   final String? questionId;
   final String? text;
@@ -104,7 +104,7 @@ class FloatNode {
   final bool inBody;
 
   /// true = 浮层（识别中提示 / 悬停提示）：画在内容之上，**单独出一张小图**，
-  /// 这样悬停只重画这一小块（M36）。
+  /// 这样悬停只重画这一小块。
   final bool overlay;
   final int maxLines;
   final TextAlign align;
@@ -113,7 +113,7 @@ class FloatNode {
   final String? fontFamily;
 
   /// 已经排好版的文本（内容层缓存的 `TextPainter`）：有它就直接画，
-  /// 不用每帧重新排版（M34 性能要点）。
+  /// 不用每帧重新排版（ 性能要点）。
   final TextPainter? painter;
 
   /// 描边色（题目轮廓）；null = 不描边。
@@ -209,7 +209,7 @@ class FloatWindowPalette {
   final int accent;
 
   /// **画在用窗口底色上的**主色（题号、强调文字）：保证与 [background] 的
-  /// 对比度 ≥ 4.5:1（M43 第 3 条 —— 用户报「答案题号颜色和背景色高度接近」）。
+  /// 对比度 ≥ 4.5:1（ —— 用户报「答案题号颜色和背景色高度接近」）。
   final int accentStrong;
 
   /// 答案文字的专用色（标绿/标黄那套），同样保证对比度 ≥ 4.5:1。
@@ -227,7 +227,7 @@ class FloatWindowPalette {
 
   /// 取配色（按「明暗 + 配色 id」缓存）。
   ///
-  /// M34：这里原来每次都要 `QuizSyncTheme.build` 出一个 `ThemeData`，
+  /// 这里原来每次都要 `QuizSyncTheme.build` 出一个 `ThemeData`，
   /// 而悬浮窗每推一帧就要取一次配色 —— 缓存掉，别再每帧造主题。
   factory FloatWindowPalette.of({
     required bool dark,
@@ -264,10 +264,10 @@ class FloatWindowPalette {
       text: dark ? 0xFFE8ECEF : 0xFF1F2426,
       subtext: dark ? 0xFF9AA4AD : 0xFF5F6B76,
       accent: seed,
-      // M43 第 3 条：**画在窗口底色上的**主色 / 答案色必须先满足对比度 ≥ 4.5:1
+      // **画在窗口底色上的**主色 / 答案色必须先满足对比度 ≥ 4.5:1
       // （用户报「极简模式的答案、题号颜色和背景色高度接近，不明显」）。
       accentStrong: ensureContrast(seed, bg),
-      // 答案用**标绿**那套契约色（M44 第 4 条：用户要求「答案颜色改成绿色」）：
+      // 答案用**标绿**那套契约色：
       // 门槛只给到 2.9:1（= 主界面在白卡片上的水平），所以浅色下就是 HighlightColors
       // 的原色 #16A34A —— 一眼能认出是绿色，不会被自动压暗成墨绿。
       answerStrong: ensureContrast(
@@ -344,7 +344,7 @@ class FloatWindowModel {
   /// 内容渲染失败（提示用户看主窗口）。
   final bool contentFailed;
 
-  /// 一次性提示（M42：「已复制本题答案」/「已复制所选」），贴在内容区下方，
+  /// 一次性提示（「已复制本题答案」/「已复制所选」），贴在内容区下方，
   /// 一两秒后由调用方清掉。
   final String? tipText;
 
@@ -393,7 +393,7 @@ double contrastRatio(int a, int b) {
 
 /// 把 [argb] 朝「远离 [background]」的方向逐档调和，直到对比度 ≥ [minRatio]。
 ///
-/// **为什么需要它**（M43 第 3 条）：悬浮窗的题号/答案用的都是配色的**种子色**，
+/// **为什么需要它**：悬浮窗的题号/答案用的都是配色的**种子色**，
 /// 而窗口底色也是同一个种子色薄涂出来的 —— 深色下「紫罗兰」这类中明度种子与底色
 /// 的对比度只有 2:1 上下，用户看到的就是「颜色和背景色高度接近，不明显」。
 /// 这里只保证**够看清**，不改配色本身的色相（仍然是那套配色的颜色，只是更亮/更深）。
@@ -441,7 +441,7 @@ FloatFrame layoutFloatWindow(
   ));
 
   // ---------------- 顶部第一栏（图标按钮，只有这里能拖窗口） ----------------
-  // 左侧：识别序号（上）与日期时间（下）。M34 第 2 条：**不再显示**
+  // 左侧：识别序号（上）与日期时间（下）。**不再显示**
   // 「共 N 题 / N 张图片」（信息价值低，还占掉半边标题栏）。
   final headTop = pad;
   final titleStyle = _style(fs * 1.02, p.text, 600);
@@ -466,8 +466,8 @@ FloatFrame layoutFloatWindow(
       argb: p.subtext));
 
   final btn = floatIconButtonSize(s);
-  // M34 第 3 条：下一条 / 上一条**位置互换**（列表第一个画在最右边）。
-  // M34 第 7 条：删掉顶部两个字号按钮（字号统一在设置页里调）。
+  // 下一条 / 上一条**位置互换**（列表第一个画在最右边）。
+  // 删掉顶部两个字号按钮（字号统一在设置页里调）。
   final buttons = <_IconBtn>[
     _IconBtn(FloatAction.next, Icons.chevron_right, '下一条',
         enabled: m.index > 0),
@@ -475,7 +475,7 @@ FloatFrame layoutFloatWindow(
         enabled: m.index < m.total - 1),
     _IconBtn(FloatAction.regenerate, Icons.refresh, '重新识别',
         enabled: !m.busy && m.total > 0),
-    // M43 第 1 条：极简模式就是**默认模式**，另一个模式叫「详细解析模式」。
+    // 极简模式就是**默认模式**，另一个模式叫「详细解析模式」。
     _IconBtn(FloatAction.toggleMinimal,
         m.minimal ? Icons.expand : Icons.compress,
         m.minimal
@@ -509,7 +509,7 @@ FloatFrame layoutFloatWindow(
       radius: 8 * s,
     ));
     // 图标字形**垂直居中**：只按 rect.top 画会让字形贴在按钮上沿
-    // （M34 用户反馈「按钮文字异常」——像素复核确认偏移了半个行高）。
+    // 。
     final glyph = String.fromCharCode(b.icon.codePoint);
     final glyphTp = floatParagraph(
       glyph,
@@ -549,8 +549,8 @@ FloatFrame layoutFloatWindow(
   ));
 
   // ---------------- 底部两个识别按钮 ----------------
-  // M33 第 5 条：识别中也照样可点。M34 先试过 macOS Dock 那样的悬停放大，
-  // 用户看了一轮反馈「太奇怪」，撤掉；同时要求**按钮不要太大**（适度即可），
+  // 识别中也照样可点。悬停放大（macOS Dock 那种）观感突兀，已撤掉；
+  // **按钮不要太大**（适度即可），
   // 所以这里用「一行文字那么高 + 上下留白」的紧凑尺寸，不做大块头；
   // 圆角与间距沿用主界面的 `AppRadius.control`，别让它的边看着「不像这个软件」。
   final footPad = pad;
@@ -578,7 +578,7 @@ FloatFrame layoutFloatWindow(
     footer.add(_IconBtn(FloatAction.capture, Icons.center_focus_strong, '识别一张'));
     footer.add(_IconBtn(FloatAction.multiPage, Icons.filter_none, '多页识别'));
     labels.addAll(['识别一张', '多页识别']);
-    // M43 第 2 条：默认模式（极简）多一个「复制识别内容」，排在**三个按钮的最后一个**。
+    // 默认模式（极简）多一个「复制识别内容」，排在**三个按钮的最后一个**。
     if (m.minimal) {
       footer.add(
           _IconBtn(FloatAction.copyContent, Icons.content_copy, '复制识别内容'));
@@ -600,7 +600,7 @@ FloatFrame layoutFloatWindow(
       enabled: b.enabled,
       radius: AppRadius.control * s,
     ));
-    // 标签**垂直居中**（用户反馈「按钮文字异常」就是这里贴了上沿）。
+    // 标签**垂直居中**。
     final labelColor = b.enabled ? 0xFFFFFFFF : p.subtext;
     final labelTp = floatParagraph(
       labels[i],
@@ -662,7 +662,7 @@ FloatFrame layoutFloatWindow(
     ));
   }
 
-  // ---------------- 一次性提示（复制结果，M42） ----------------
+  // ---------------- 一次性提示（复制结果） ----------------
   final tipText = m.tipText;
   if (tipText != null && tipText.isNotEmpty) {
     final tipStyle = _style(fs * 0.88, 0xFFFFFFFF, 600);
@@ -771,7 +771,7 @@ FloatFrame layoutFloatWindow(
 }
 
 /// `rawRgba`（**预乘** alpha）→ 预乘 BGRA（`UpdateLayeredWindow` 要的字节序），
-/// 顺便把整窗透明度乘进去（乘在像素里比交给 DWM 稳，见 M36/M38）。
+/// 顺便把整窗透明度乘进去（乘在像素里比交给 DWM 稳，见 ）。
 ///
 /// 抽出来是为了让「富文本渲染」（`float_window_rich.dart`）与这里的图元渲染
 /// 走**同一份**转换：公式/化学式/表格那套是引擎出的 RGBA，图元那套也是。
@@ -798,7 +798,7 @@ Uint8List premultipliedBgra(Uint8List src, double opacity) {
 
 /// 把**一块**图元画成一张位图（预乘 alpha 的 BGRA，`UpdateLayeredWindow` 要的格式）。
 ///
-/// M36：这是分块缓存的出图入口。窗口外观 / 内容 / 浮层各出一张图（**只在它们变化时**），
+/// 这是分块缓存的出图入口。窗口外观 / 内容 / 浮层各出一张图（**只在它们变化时**），
 /// 之后每帧只由 `float_window_compose.dart` 在 Dart 里做 memcpy 合成 ——
 /// 原来每帧都要跑一次 `Picture.toImage` + 4 MB 读回（实测 ~40 ms，用户报「很卡」）。
 ///
@@ -936,7 +936,7 @@ TextPainter floatParagraph(
   return tp;
 }
 
-/// 排一段**带样式片段的**文本（M42：极简面板一题一个段落，题号/题型/答案各自
+/// 排一段**带样式片段的**文本（极简面板一题一个段落，题号/题型/答案各自
 /// 换色换字重，但仍然是**同一个 `TextPainter`** —— 拖选要按字符下标取值，
 /// 拆成多个图元会让跨行选区的下标错位）。
 TextPainter floatParagraphSpan(

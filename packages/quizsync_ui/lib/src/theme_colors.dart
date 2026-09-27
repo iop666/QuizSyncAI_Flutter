@@ -7,7 +7,7 @@ class HighlightColors {
   static const darkText = Color(0xFF4ADE80);
   static const darkBackground = Color(0xFF14351F);
 
-  /// 用户反馈 13：AI **自己没把握**（`confidence < 0.6` 或 `need_review`）时，
+  /// AI **自己没把握**（`confidence < 0.6` 或 `need_review`）时，
   /// 命中的选项与答案区不能再用绿色（绿色 = 可信），改用黄色警示。
   static const lightUncertainText = Color(0xFFD97706);
   static const lightUncertainBackground = Color(0xFFFEF3C7);
@@ -26,7 +26,7 @@ class HighlightColors {
   static const lightAnswerBackground = Color(0xFFDCFCE7);
   static const darkAnswerBackground = Color(0xFF14351F);
 
-  /// 提示/告警**正文**色（用户反馈 9）：徽标底色是浅黄，直接用琥珀色写字
+  /// 提示/告警**正文**色：徽标底色是浅黄，直接用琥珀色写字
   /// 对比度太低，正文另给一档更深的颜色。
   static const lightWarnText = Color(0xFF92400E);
   static const darkWarnText = Color(0xFFFCD34D);
@@ -37,7 +37,7 @@ class HighlightColors {
   static const reviewBadge = Color(0xFFF59E0B);
   static const reviewBadgeBackground = Color(0xFFFEF3C7);
 
-  /// 题目不全（用户需求 2）：整张卡片黄框 + 黄底徽标。
+  /// 题目不全：整张卡片黄框 + 黄底徽标。
   static const incompleteLight = Color(0xFFEAA100);
   static const incompleteDark = Color(0xFFFACC15);
   static const incompleteLightBackground = Color(0xFFFFF8E1);

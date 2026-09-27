@@ -10,19 +10,19 @@ import 'widgets.dart';
 /// SPEC 4.3：选项行 / 答案区块的标绿渲染。
 /// 颜色与 ✓ 图标严格按契约；✓ 是刻意加的（颜色不能是唯一信息通道）。
 ///
-/// M8 界面优化：题干/选项/解析的层级、间距、徽标统一走共享设计基线；
+///  界面优化：题干/选项/解析的层级、间距、徽标统一走共享设计基线；
 /// **标绿配色与 `option-*` / `answer-block` / `review-badge` 这些键保持不变**。
 class QuestionCard extends StatelessWidget {
   final Question question;
   final double fontSize;
 
-  /// 题目正文的字重（wght，用户反馈 1：Windows 端可调）。
+  /// 题目正文的字重（wght：Windows 端可调）。
   /// null = 保持原样（题干 w500，其余继承外部样式）——安卓端不传这个参数。
   final int? fontWeight;
 
   /// 是否**总是**显示「把握 N%」（默认只在 0 < confidence < 1 时显示）。
   ///
-  /// Windows 悬浮窗传 true（M33 第 13 条：题号后面要跟上题型与 AI 把握率）：
+  /// Windows 悬浮窗传 true（题号后面要跟上题型与 AI 把握率）：
   /// 那个窗里没有别的置信度线索，缺了它用户不知道这条答案有多可信。
   final bool alwaysShowConfidence;
 
@@ -42,12 +42,12 @@ class QuestionCard extends StatelessWidget {
     final fg = dark ? Colors.grey[100]! : const Color(0xFF1F2426);
     final secondary = theme.colorScheme.onSurfaceVariant;
     final weight = fontWeight;
-    // 用户反馈 13：AI 没把握时，命中的选项/答案区用黄色而不是绿色。
+    // AI 没把握时，命中的选项/答案区用黄色而不是绿色。
     final uncertain = highlight.needsReview;
 
     Widget card = Card(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      // 用户需求 2：题目不全 → 整个题目外框标黄。
+      // 题目不全 → 整个题目外框标黄。
       shape: question.incomplete
           ? RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.card),
@@ -66,7 +66,7 @@ class QuestionCard extends StatelessWidget {
             ],
             _header(context, dark, secondary),
             const SizedBox(height: AppSpacing.md),
-            // 阅读材料（用户反馈 15）：阅读类题目的文章原文，**默认折叠**，
+            // 阅读材料：阅读类题目的文章原文，**默认折叠**，
             // 点击展开；放在题干之前（材料在题目原文里本来也在前面）。
             if (question.hasMaterial) ...[
               _MaterialPanel(
@@ -132,7 +132,7 @@ class QuestionCard extends StatelessWidget {
             style: questionWeightStyle(weight), child: card);
   }
 
-  /// 题目不全的顶部横幅（用户需求 2）。
+  /// 题目不全的顶部横幅。
   Widget _incompleteBanner(bool dark) {
     final color = HighlightColors.incomplete(dark);
     return Container(
@@ -174,12 +174,11 @@ class QuestionCard extends StatelessWidget {
       spacing: AppSpacing.sm,
       runSpacing: AppSpacing.xs,
       children: [
-        // 排序序号放在题号徽标**外面、前面**（用户反馈 7）：
+        // 排序序号放在题号徽标**外面、前面**：
         // 序号是我们给的（本次识别的第几题），题号是 AI 从图里读到的，
         // 两者含义不同，挤在同一个徽标里会被读成同一个数字。
         //
-        // M33：**序号后面不带点号**（用户原话「题号不带 `1.`，说的只是 `.`，
-        // 不是不显示」）—— 序号照旧显示，只是把 `1.` 写成 `1`。
+        // **序号后面不带点号**——序号照旧显示，只是把 `1.` 写成 `1`。
         Text(
           '${q.ordinal + 1}',
           key: const ValueKey('question-seq'),
@@ -212,7 +211,7 @@ class QuestionCard extends StatelessWidget {
           color: secondary,
           filled: false,
         ),
-        // AI 猜测答案徽标（用户需求 2）。
+        // AI 猜测答案徽标。
         if (q.answerGuessed)
           Container(
             key: const ValueKey('answer-guess-badge'),
@@ -253,7 +252,7 @@ class QuestionCard extends StatelessWidget {
             icon: Icons.image_outlined,
             filled: false,
           ),
-        // 置信度徽标（ai-contract §6）；悬浮窗要求**总是**显示把握率（M33 第 13 条）。
+        // 置信度徽标（ai-contract §6）；悬浮窗要求**总是**显示把握率。
         if (q.confidence > 0 && (alwaysShowConfidence || q.confidence < 1))
           Text(
             '把握 ${(q.confidence * 100).round()}%',
@@ -274,7 +273,7 @@ class QuestionCard extends StatelessWidget {
   List<Widget> _optionRows(bool dark) {
     final highlight = computeHighlight(question);
     final fg = dark ? Colors.grey[100]! : const Color(0xFF1F2426);
-    // 用户反馈 13：不确定 → 命中项用黄色。
+    // 不确定 → 命中项用黄色。
     final uncertain = highlight.needsReview;
 
     if (question.type == QuestionType.judge) {
@@ -457,7 +456,7 @@ class QuestionCard extends StatelessWidget {
                   fontSize: fontSize * 0.78,
                   fontWeight: FontWeight.w700,
                   color: dark ? Colors.grey[400]! : Colors.grey[700]!)),
-          // 用户需求 2：答案为 AI 推断时必须注明。
+          // 答案为 AI 推断时必须注明。
           if (question.answerGuessed) ...[
             const SizedBox(width: 6),
             Text('（AI 猜测）',
@@ -493,7 +492,7 @@ class QuestionCard extends StatelessWidget {
     ];
   }
 
-  /// 答案正文（用户反馈 15）：主观/填空的结构化多行答案按行渲染，
+  /// 答案正文：主观/填空的结构化多行答案按行渲染，
   /// 每行独立成条（保留 AI 给的 ①②③ / 1. 这类序号），单行答案原样显示。
   Widget _answerText(bool dark, Color color) {
     final text = question.answerText ?? '';
@@ -543,7 +542,7 @@ class QuestionCard extends StatelessWidget {
 
   /// AI 给的告警（未识别到选项 / 答案与选项不匹配 / 答案为图中猜测…）。
   ///
-  /// 用户反馈 9：原来是横向 `Wrap` 里的药丸，**药丸里的 Text 不换行**，
+  /// 原来是横向 `Wrap` 里的药丸，**药丸里的 Text 不换行**，
   /// 一句长提示（例如「答案为图中猜测答案，且材料……「）会直接顶出屏幕边界。
   /// 改成一行一块、正文 `Expanded` 自动换行。
   Widget _warnings(bool dark) {
@@ -610,7 +609,7 @@ class QuestionCard extends StatelessWidget {
   }
 }
 
-/// 阅读材料面板（用户反馈 15）：阅读类题目的文章原文，**默认折叠**，
+/// 阅读材料面板：阅读类题目的文章原文，**默认折叠**，
 /// 点标题条展开/收起——材料通常很长，展开会把它下面真正要看的题干与答案
 /// 挤出屏幕。空材料不会渲染（调用方已判 `hasMaterial`）。
 class _MaterialPanel extends StatefulWidget {

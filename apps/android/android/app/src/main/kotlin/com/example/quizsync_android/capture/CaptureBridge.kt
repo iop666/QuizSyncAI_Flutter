@@ -15,7 +15,7 @@ import io.flutter.plugin.common.MethodChannel
 import com.example.quizsync_android.ball.FloatingBallManager
 
 /**
- * MethodChannel 桥（SPEC 3.2 / M5 任务 6，保持极薄）：
+ * MethodChannel 桥（SPEC 3.2，保持极薄）：
  * - captureScreen() -> Uint8List（JPEG 字节；含隐藏悬浮球→250ms→取帧→恢复）
  * - setBallVisible(bool)
  * - isCaptureAvailable() -> {main, accessibility, sessionLost, overlayGranted}
@@ -25,7 +25,7 @@ import com.example.quizsync_android.ball.FloatingBallManager
  * - showResultNotification(title, text)（后台结果通知，点开进结果页）
  * 事件：session_lost（Dart 收到后引导重新授权）
  *
- * 用户需求 3：**没有任何把 Activity 拉到前台的路径**——识别全程静默，
+ * **没有任何把 Activity 拉到前台的路径**——识别全程静默，
  * 界面只靠「当前任务」页与通知栏自然更新。
  */
 class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
@@ -53,7 +53,7 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
         @Volatile var pendingNotifPermission: MethodChannel.Result? = null
 
         /**
-         * 配对页「开始使用」时申请的相机权限（用户需求 7）。
+         * 配对页「开始使用」时申请的相机权限。
          * 首次进入配对页**不会**走这里——只有用户点了按钮才会申请。
          */
         @Volatile var pendingCameraPermission: MethodChannel.Result? = null
@@ -63,7 +63,7 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
         /** 主线程 handler：Toast 等 UI 操作必须在主线程。 */
         private val mainHandler = Handler(Looper.getMainLooper())
 
-        /** 当前正在显示的系统 Toast（M49：新提示顶掉旧的，不排队）。 */
+        /** 当前正在显示的系统 Toast（新提示顶掉旧的，不排队）。 */
         @Volatile private var currentToast: android.widget.Toast? = null
 
         /** Dart 期望悬浮球显示（setBallVisible(true) 曾成功或待重试）。 */
@@ -78,7 +78,7 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
 
         /**
-         * 悬浮球手势 → Dart（用户需求 3：识别全程静默）。
+         * 悬浮球手势 → Dart。
          *
          * 这里**不再**把主界面抢到前台：采集、上传与结果都在后台完成，
          * 「当前任务」页与通知栏自然更新，用户正在看的那道题不会被盖住。
@@ -141,7 +141,7 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
                     ball?.show() ?: false
                 } else {
                     ball?.hide()
-                    // M47（用户实测反馈「关闭悬浮球后，屏幕共享未自动终止」）：
+                    // 关闭悬浮球后，屏幕共享不能处于未终止状态：
                     // 悬浮球是截屏的唯一入口，关掉它就该把常驻的截屏前台服务一起
                     // 停掉 —— 否则 MediaProjection 一直活着、系统状态栏那条
                     // 「屏幕共享/投屏」提示也不会消失。停服务会走 onDestroy →
@@ -153,12 +153,12 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
                 result.success(shown)
             }
             "bringToForeground" -> {
-                // 已废弃（用户需求 3）：识别全程静默，任何手势都不再把主界面
+                // 已废弃：识别全程静默，任何手势都不再把主界面
                 // 拉到前台。保留方法名只为兼容可能残留的旧调用，行为是空操作。
                 result.success(null)
             }
             "requestCameraPermission" -> {
-                // 配对扫码用（用户需求 7）：Dart 只在用户点了「开始使用」后调用，
+                // 配对扫码用：Dart 只在用户点了「开始使用」后调用，
                 // 保证首次进入配对页不会自动调起相机。
                 val act = activity
                 val perm = android.Manifest.permission.CAMERA
@@ -265,7 +265,7 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
                 useAccessibilityPath = call.argument<String>("mode") == "accessibility"
                 result.success(null)
             }
-            // 多页模式（用户需求 11）：只影响悬浮球外观，业务判断在 Dart。
+            // 多页模式：只影响悬浮球外观，业务判断在 Dart。
             "setBallMode" -> {
                 val active = call.argument<Boolean>("active") ?: false
                 val pages = call.argument<Int>("pages") ?: 0
@@ -310,7 +310,7 @@ class CaptureBridge : FlutterPlugin, MethodChannel.MethodCallHandler {
         val ctx = activity ?: appContext ?: return
         mainHandler.post {
             try {
-                // M49：`Toast.makeText().show()` 会**排队**（每条 LENGTH_SHORT ≈ 2 秒），
+                // `Toast.makeText().show()` 会**排队**（每条 LENGTH_SHORT ≈ 2 秒），
                 // 连按几页悬浮球就攒出一串提示，用户要等十几秒才看完。取消上一条、
                 // 只显示最新的那条（多页提示本身带页数，看最后一条信息量更大）。
                 currentToast?.cancel()

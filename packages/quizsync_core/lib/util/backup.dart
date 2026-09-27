@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:quizsync_core/quizsync_core.dart';
 
-/// 备份与恢复（M6 任务 8）：数据库 + 图片目录 → zip；从 zip 恢复。
+/// 备份与恢复：数据库 + 图片目录 → zip；从 zip 恢复。
 /// 纯 Dart（archive 包），Windows 端 UI 一键调用。
 class BackupManager {
   /// 生成备份 zip 字节：db 文件 + images/ 下全部文件。

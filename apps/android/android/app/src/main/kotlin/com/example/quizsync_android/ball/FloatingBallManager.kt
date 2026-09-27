@@ -14,19 +14,19 @@ import android.view.View
 import android.view.WindowManager
 
 /**
- * 悬浮球（SPEC 3.1 + 用户需求 8/11）：原生 View + WindowManager TYPE_APPLICATION_OVERLAY。
- * - **默认停靠右边缘**、垂直位置约屏幕高度 40%（用户需求 8）；
+ * 悬浮球（SPEC 3.1）：原生 View + WindowManager TYPE_APPLICATION_OVERLAY。
+ * - **默认停靠右边缘**、垂直位置约屏幕高度 40%；
  * - 可拖动，松手吸附最近的左/右边缘（垂直位置保留），并记住该侧为停靠方向；
  * - 8dp 阈值区分点击与拖动（拖动不触发截屏）；
  * - **单击** → onTap()（Dart 决定：单图识别，或结束多页模式）；
  * - **长按 500ms** → onLongPress()（Dart 决定：追加一页，进入/继续多页模式）；
- *   —— 长按菜单已废弃（用户需求 11），历史/设置移到 App 的底部标签栏；
+ *   —— 长按菜单已废弃，历史/设置移到 App 的底部标签栏；
  * - setMode() 让球在多页收集期间换色并显示已收集页数；
  * - setAppearance() 支持透明度与大小（识别模块设置二级页）；
  * - 截屏前由 CaptureBridge 隐藏本球、等 250ms、截完恢复。
  *
  * 业务判断（当前是不是多页模式、该做什么）全部在 Dart 侧，这里只上报手势。
- * 用户需求 3：本类与调用方都**不再把主界面拉到前台**。
+ * 本类与调用方都**不再把主界面拉到前台**。
  */
 class FloatingBallManager(
     private val context: Context,
@@ -41,10 +41,10 @@ class FloatingBallManager(
         private const val LONG_PRESS_MS = 500L
         private const val EDGE_MARGIN_DP = 0f
 
-        /** 默认停靠方向：右边缘（用户需求 8）。 */
+        /** 默认停靠方向：右边缘。 */
         private const val DEFAULT_DOCK_RIGHT = true
 
-        /** 默认垂直位置：屏幕高度的 40%（用户需求 8）。 */
+        /** 默认垂直位置：屏幕高度的 40%。 */
         private const val DEFAULT_Y_FRACTION = 0.4f
     }
 
@@ -63,7 +63,7 @@ class FloatingBallManager(
     private var multiPageActive = false
     private var multiPageCount = 0
 
-    /** 当前停靠方向（true = 右边缘）；默认右侧（用户需求 8）。 */
+    /** 当前停靠方向（true = 右边缘）；默认右侧。 */
     private var dockRight = DEFAULT_DOCK_RIGHT
 
     /** 用户拖动后的垂直位置；-1 表示还没拖过，用默认的 40% 高度。 */
@@ -84,7 +84,7 @@ class FloatingBallManager(
         }
     }
 
-    /** 默认垂直位置：屏幕高度约 40%（用户需求 8）；拖过之后沿用用户的位置。 */
+    /** 默认垂直位置：屏幕高度约 40%；拖过之后沿用用户的位置。 */
     private fun dockY(): Int {
         val fallback =
             (screenHeight * DEFAULT_Y_FRACTION).toInt() - ballSizePx / 2
@@ -160,7 +160,7 @@ class FloatingBallManager(
             gravity = Gravity.START or Gravity.TOP
             width = ballSizePx
             height = ballSizePx
-            // 默认贴在右边缘、垂直约 40% 高度（用户需求 8）。
+            // 默认贴在右边缘、垂直约 40% 高度。
             x = dockX()
             y = dockY()
         }
@@ -171,7 +171,7 @@ class FloatingBallManager(
         var startY = 0
         var moved = false
         var longFired = false
-        // 长按只上报一次手势，不再弹菜单（用户需求 11）。
+        // 长按只上报一次手势，不再弹菜单。
         val longPressRunnable = Runnable {
             if (!moved) {
                 longFired = true
@@ -230,7 +230,7 @@ class FloatingBallManager(
 
     /**
      * 松手后吸附最近的左/右边缘，垂直位置保留（SPEC 3.1），
-     * 并把这一侧记为停靠方向（用户需求 8：默认停靠右侧）。
+     * 并把这一侧记为停靠方向。
      */
     private fun snapToEdge(params: WindowManager.LayoutParams) {
         val view = ballView ?: return
@@ -247,7 +247,7 @@ class FloatingBallManager(
     }
 
     /**
-     * 多页模式状态（用户需求 11）：只影响外观，业务判断在 Dart。
+     * 多页模式状态：只影响外观，业务判断在 Dart。
      * [pages] = 已收集页数（0 表示刚进入多页模式还没截到页）。
      */
     fun setMode(active: Boolean, pages: Int) {

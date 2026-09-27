@@ -26,13 +26,13 @@ class _DesktopScrollBehavior extends MaterialScrollBehavior {
       };
 }
 
-/// 界面缩放（用户反馈 9）：50%–300%。
+/// 界面缩放：50%–300%。
 ///
 /// 做法是「虚拟画布 + 等比放大」：把 MediaQuery 的逻辑尺寸除以缩放比、
 /// devicePixelRatio 乘上缩放比，再等比放大画布。文字与控件一起缩放，
 /// 布局里所有断点（例如设置页 880 的收栏阈值）按缩放后的逻辑尺寸判断。
 ///
-/// **必须用 `OverflowBox` 把虚拟画布撑开**（用户反馈 M14 第 1 条「还是那片黑」）：
+/// **必须用 `OverflowBox` 把虚拟画布撑开**：
 /// 根节点给下来的是**紧约束**（= 窗口逻辑尺寸），直接在 `Transform.scale` 里放
 /// `SizedBox(virtual)` 会被紧约束夹回窗口尺寸 —— 于是界面按窗口尺寸布局、再被
 /// 缩小到一半，只画在左上角，右边/下边留下一条**没有任何 widget 覆盖的区域**
@@ -100,7 +100,7 @@ class QuizSyncApp extends ConsumerWidget {
       ThemeMode2.light => ThemeMode.light,
       ThemeMode2.dark => ThemeMode.dark,
     };
-    // 用户反馈 1：Windows 端整体用 MiSans（随包附带的可变字体），
+    // Windows 端整体用 MiSans（随包附带的可变字体），
     // 系统字体只作兜底（字体文件缺失/缺字时仍有中文可读）。
     const mixture = ['Microsoft YaHei UI', 'Segoe UI', 'Microsoft YaHei'];
     return MaterialApp(
@@ -119,12 +119,12 @@ class QuizSyncApp extends ConsumerWidget {
           accent: settings.app.accent,
           fontFamily: 'MiSans',
           fontFamilyFallback: mixture),
-      // 用户反馈 9：界面缩放对所有路由（含设置页与弹窗）生效。
+      // 界面缩放对所有路由（含设置页与弹窗）生效。
       builder: (context, child) => UiScale(
         scale: settings.app.uiScale,
         child: child ?? const SizedBox.shrink(),
       ),
-      // 用户需求 8：没有选中合集时挡在合集选择页，不进主界面。
+      // 没有选中合集时挡在合集选择页，不进主界面。
       home: CollectionGate(
         child: DropTarget(
           onDragDone: (details) async {

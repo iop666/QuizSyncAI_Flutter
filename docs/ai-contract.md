@@ -10,7 +10,7 @@
 abstract class QuizAiProvider {
   String get id;                     // 'openai-compatible' | 'anthropic' | 'gemini'
   Future<AiRawResponse> analyze({
-    required List<Uint8List> jpegBytesList,   // 多页（用户需求 4）：1..6 张，顺序即页序
+    required List<Uint8List> jpegBytesList,   // 多页：1..6 张，顺序即页序
     required String prompt,
     required AiConfig config,
   });
@@ -235,16 +235,16 @@ class AiConfig {
 
 ---
 
-### 4.1 多页识别（用户需求 4）
+### 4.1 多页识别
 
-- 一次识别可以带 **1..6 页**图片（上限可配 `AppSettings.multiPageLimit`，服务端硬上限 `kHardMaxPagesPerTask` **就是 6** —— 用户反馈 9 明确「硬上限就是 6 张，不是 12」）。
+- 一次识别可以带 **1..6 页**图片（上限可配 `AppSettings.multiPageLimit`，服务端硬上限 `kHardMaxPagesPerTask` **就是 6**）。
 - 页序由 `session_images.ordinal`（0 起）决定，`sessions.image_hash` 始终是**第一页**（兼容既有缓存与协议字段）。
 - 多页请求把全部页放进**同一条** user 消息（OpenAI 兼容 = 多个 `image_url`；Anthropic = 多个 image 块；Gemini = 多个 inline_data part）。
-- **页序错乱由模型自己纠正**（用户反馈 14：多页顺序可能乱，让 AI 自己识别完进行正确排序）：prompt 明确要求先通读全部图片、按内容判断正确顺序后再输出，不得盲目沿用给出的图片次序。（`session_images.ordinal` 仍如实记录**用户实际截取的顺序**，用于展示与重试，不因模型排序而改写。）
-- **只有材料、没有题目的页不能丢**（用户反馈 14）：这类页的内容进入所属题目的 `material` 字段，而不是被忽略或伪造题干。
+- **页序错乱由模型自己纠正**：prompt 明确要求先通读全部图片、按内容判断正确顺序后再输出，不得盲目沿用给出的图片次序。（`session_images.ordinal` 仍如实记录**用户实际截取的顺序**，用于展示与重试，不因模型排序而改写。）
+- **只有材料、没有题目的页不能丢**：这类页的内容进入所属题目的 `material` 字段，而不是被忽略或伪造题干。
 - 任务执行时若任何一页的图片文件缺失 → 任务失败（`internal`），**不得**用残缺的页序出结果。
 
-### 4.2 不完整题目与 AI 猜测的端侧表现（用户需求 2/3）
+### 4.2 不完整题目与 AI 猜测的端侧表现
 
 | 数据 | 端侧表现 |
 |---|---|
@@ -253,7 +253,7 @@ class AiConfig {
 | `question_no` 有值 | 卡片标题 = `displayTitle`，即 `排序序号. 第 <question_no> 题`（例：`3. 第 12 题`）；没有题号时只有 `3.` |
 | 导出文件 | 标题同样用 `displayTitle`，并在题型后追加「· 题目不全 / · AI 猜测」 |
 
-### 4.3 阅读材料与结构化主观题（用户反馈 15）
+### 4.3 阅读材料与结构化主观题
 
 | 数据 | 端侧表现 |
 |---|---|
@@ -284,7 +284,7 @@ class AiConfig {
 
 配色与图标见 `SPEC.md` 4.3。用户手改答案后，用用户的值走同一套逻辑标绿。
 
-**用户反馈 13：AI 自己没把握时不用绿色。** 当 `need_review == true` 或 `confidence < 0.6`
+**AI 自己没把握时不用绿色。** 当 `need_review == true` 或 `confidence < 0.6`
 （即 `HighlightResult.needsReview`）时，命中的选项行与「答案」区块改用**黄色**配色
 （`HighlightColors.lightUncertainText` / `darkUncertainText` 与对应底色），
 绿色专留给「可信的答案」。逻辑与配色分离：`computeHighlight` 只给出 `needsReview`，
@@ -305,7 +305,7 @@ class AiConfig {
 
 ---
 
-## 7. 测试要求（M2 起）
+## 7. 测试要求
 
 1. **解析容错单测**：针对容错 5 个步骤各写一个用例，包括纯文本包裹、代码围栏、前后有解释文字、完全非法 JSON。
 2. **字段规范化单测**：覆盖第 3 节表格里的每一行。

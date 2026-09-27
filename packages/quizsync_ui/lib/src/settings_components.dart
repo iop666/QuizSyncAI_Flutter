@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'theme_colors.dart';
 
-/// 设置页的统一基础组件（M9 设置页重构）。
+/// 设置页的统一基础组件（ 设置页重构）。
 ///
 /// 设计约束（用户 2026-09-19 的界面要求）：
 /// - 间距只用 8 的倍数（见 [SettingsGap]），不出现 13/27/36 这类随机值。
@@ -40,7 +40,7 @@ class SettingsMetrics {
 
   static const pagePaddingH = SettingsGap.s48;
 
-  /// 页面纵向内边距（用户反馈 4：原来 40，模块之间显得太空）。
+  /// 页面纵向内边距。
   static const pagePaddingV = SettingsGap.s28;
 
   /// 设置行最小高度。
@@ -114,7 +114,7 @@ ThemeData settingsTheme(BuildContext context) {
   );
 }
 
-/// 模块标题带的底色（用户反馈 3）。
+/// 模块标题带的底色。
 ///
 /// 原来是 `QuizSyncTheme.subtleFill`（浅色 #F2F5F3），与卡片白 #FFFFFF 的
 /// 亮度差只有 3%，用户看到的就是「标题带还是透明的」。这里改成**主色薄涂**：
@@ -127,7 +127,7 @@ Color settingsGroupHeaderColor(Brightness b, ColorScheme scheme) =>
 
 /// 设置页的页面标题段：标题 + 说明 + 分隔线；下面每个 [SettingsGroup] 间隔 16。
 ///
-/// 用户反馈 4：模块之间原来隔 32（外加页面上下 40 的内边距），一屏里
+/// 模块之间原来隔 32（外加页面上下 40 的内边距），一屏里
 /// 每一个模块都离得很远，读起来要来回找。现在整体收紧一档：
 /// 模块间 16、标题段后 20、页面纵向内边距 28。
 class SettingsSection extends StatelessWidget {
@@ -171,9 +171,8 @@ class SettingsSection extends StatelessWidget {
 
 /// 设置分组：**白色底模块卡片**（模块标题带 + 一串设置行都装在里面）。
 ///
-/// 用户反馈 5：「选项要有模块归属，直接显示背景信息可读性差」→ 标题带；
-/// 用户反馈 3（本轮）：「内容要添加白色底模块，直接显示背景导致信息可读性差」
-/// → 整个分组（标题带 + 全部行）包进一张卡片色底的圆角模块里，
+/// 选项要有模块归属：直接显示背景信息可读性差
+/// → 整个分组（标题带 + 全部行）包进一张白色卡片色底的圆角模块里，
 /// 行与行之间用分隔线断开，一眼能看出哪些选项属于同一个模块。
 class SettingsGroup extends StatelessWidget {
   final String? title;
@@ -235,7 +234,7 @@ class SettingsGroup extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   horizontal: SettingsGap.s16, vertical: SettingsGap.s8),
               decoration: BoxDecoration(
-                // 用户反馈 3：标题带必须有可见底色（原来是近乎透明的浅灰）。
+                // 标题带必须有可见底色（原来是近乎透明的浅灰）。
                 color: settingsGroupHeaderColor(theme.brightness, scheme),
                 border: Border(bottom: BorderSide(color: divider)),
               ),
@@ -280,14 +279,14 @@ class SettingsGroup extends StatelessWidget {
 
 /// 说明文字是否真的可展示：空串 / 纯空白等同于「没有说明」。
 ///
-/// 用户反馈 2（M14）暴露的正是这一点：只要 `info != null` 就渲染 ⓘ，
+/// 只要 `info != null` 就渲染 ⓘ 会有问题：
 /// 传了空串时会留一个点不动、悬停也没内容的死图标。没有文字就干脆不画。
 bool _hasInfo(String? info) => info != null && info.trim().isNotEmpty;
 
-/// 设置页说明文字里的**重点标记**渲染（M44 第 6 条）。
+/// 设置页说明文字里的**重点标记**渲染。
 ///
 /// 说明文案一直用 `**…**` 标重点，但控件只是 `Text(...)`，于是用户在界面上
-/// 直接看到一对星号（用户原话：「设置中部分说明文字还存在 **」）。这里统一把
+/// 直接看到一对星号。这里统一把
 /// 成对的 `**` 解析成**真加粗**，其余原样：
 /// - 成对出现 → 中间那段加粗（`FontWeight.w600`），星号本身不显示；
 /// - 落单（只有一个或奇数个）→ **原样显示星号**，绝不吞掉用户能看到的字符；
@@ -392,7 +391,7 @@ Future<void> _showSettingsInfoDialog(
 
 /// 标题后的 ⓘ：悬停出 [Tooltip]，点击弹出完整说明对话框。
 ///
-/// 用户反馈 2（M14）：「api 配置里有些名称后有 ⓘ，毫无作用」。
+/// 「api 配置里有些名称后有 ⓘ，毫无作用」。
 /// 原实现是 14px 的裸 [Icon] 外套一层 Tooltip —— 点击没有任何反应，
 /// 悬停还要精准命中 14px 的小目标；现在换成 [IconButton]：
 /// 命中区域固定 28×28（原来的 2 倍）、自带 hover 高亮与鼠标手型，
@@ -438,7 +437,7 @@ class SettingsRow extends StatelessWidget {
   final VoidCallback? onTap;
   final String? tooltip;
 
-  /// 详细背景说明：不铺在页面上，收进标题后的 ⓘ 里（用户反馈 5）。
+  /// 详细背景说明：不铺在页面上，收进标题后的 ⓘ 里。
   final String? info;
 
   const SettingsRow({
@@ -554,7 +553,7 @@ class SettingsField extends StatelessWidget {
   final double? maxWidth;
   final CrossAxisAlignment align;
 
-  /// 详细背景说明：收进标题后的 ⓘ（用户反馈 5）。
+  /// 详细背景说明：收进标题后的 ⓘ。
   final String? info;
 
   const SettingsField({

@@ -6,7 +6,7 @@ import 'package:drift/drift.dart'
 import 'package:quizsync_core/quizsync_core.dart';
 
 
-/// 服务端任务执行器（M4 任务 3）：**串行**执行分析（默认并发 1，
+/// 服务端任务执行器：**串行**执行分析（默认并发 1，
 /// 避免打爆 AI 限流），任务状态机 `queued → analyzing → done/failed`。
 class ServerTaskExecutor {
   final CoreRepository repo;
@@ -37,7 +37,7 @@ class ServerTaskExecutor {
   /// 创建（幂等）并调度一个分析任务。
   /// 返回 (task 状态, session_id)。
   ///
-  /// [imageHashes] 是**多页**页序（用户需求 4，1..6 张）；为空时按单页
+  /// [imageHashes] 是**多页**页序；为空时按单页
   /// [imageHash] 处理。多页任务的会话首页仍是 `imageHash`（= `imageHashes[0]`），
   /// 完整页序落在 `session_images` 表。
   Future<(String, String?)> submit({
@@ -113,7 +113,7 @@ class ServerTaskExecutor {
     return ('queued', sessionId);
   }
 
-  /// 「重新生成」（用户需求 7）：按既有会话的页序重新跑一次（强制调 AI，
+  /// 「重新生成」：按既有会话的页序重新跑一次（强制调 AI，
   /// 不复用缓存），返回新任务。
   Future<(String, String?)> reanalyze({
     required String sessionId,
@@ -210,7 +210,7 @@ class ServerTaskExecutor {
       return;
     }
 
-    // 多页（用户需求 4）：按页序把全部图片一起送给 AI，让它把跨页的
+    // 多页：按页序把全部图片一起送给 AI，让它把跨页的
     // 题干与选项合并成同一道题。缺任何一页都算失败（宁可重试也不要
     // 用残缺的页序得出错误答案）。
     final pageHashes = task.sessionId == null

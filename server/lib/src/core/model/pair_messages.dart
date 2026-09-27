@@ -79,7 +79,7 @@ class ServerInfo {
   final bool aiConfigured;
   final List<String> capabilities;
 
-  /// 主机当前选中的合集（用户需求 12）：null = 主机还没选合集，
+  /// 主机当前选中的合集：null = 主机还没选合集，
   /// 此时安卓端不允许发起识别（服务端也会用 409 兜底）。
   final String? activeCollectionId;
   final String? activeCollectionName;

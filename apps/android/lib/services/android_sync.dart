@@ -5,14 +5,14 @@ import 'package:quizsync_core/quizsync_core.dart';
 
 import '../state/app_state.dart';
 
-/// 安卓端本地原图的固定保留张数（用户反馈 M14 第 7 条）。
+/// 安卓端本地原图的固定保留张数。
 ///
-/// 用户明确要求「安卓端本地默认只保存最近 20 张，不再提供图片缓存选项」，
+/// 安卓端本地只保存最近 20 张原图，不提供图片缓存上限选项，
 /// 所以这里写死常量：不再读 `app.settings.app.imageCacheLimit`
 /// （那个设置项留给 Windows 端继续用，字段本身保留不删）。
 const int kAndroidLocalImageLimit = 20;
 
-/// Android 端同步编排（M6 任务 1、4、5）：
+/// Android 端同步编排：
 /// 1. 离线队列按序补跑（Windows 上线后）；
 /// 2. 图片后台补传（最近 200 张、一次 5 张）；
 /// 3. reconcile：先拉后推。
@@ -33,7 +33,7 @@ class AndroidSync {
       final api = ApiClient(baseUrl: info.httpBase, token: info.token);
 
       // 1. 离线队列按序补跑（data-model 2.8）。
-      //    多页 / 合集归属必须在补跑时原样复原（用户需求 4/8），
+      //    多页 / 合集归属必须在补跑时原样复原，
       //    否则主机收到的是一个「只有第一页、没归类」的任务。
       //    每一页都要重新上传：离线期间主机那边这些图也不存在。
       drained = await app.queue.drain((task) async {
@@ -96,7 +96,7 @@ class AndroidSync {
       pulled = r.pulled;
       pushed = r.pushed;
 
-      // 4. 本地图片缓存清理（用户反馈 M14 第 7 条）：固定只留最近 20 张。
+      // 4. 本地图片缓存清理：固定只留最近 20 张。
       await pruneImages();
     } catch (_) {
       // 主机不在线等情况：下次再试。
@@ -109,9 +109,9 @@ class AndroidSync {
     );
   }
 
-  /// 把主机上报的**当前活跃合集列表**打进本地库（M18 第 4 条）。
+  /// 把主机上报的**当前活跃合集列表**打进本地库。
   ///
-  /// 用户原话：「安卓端现在识别不到无法同步 windows 端的分类，想办法完成同步」。
+  /// 背景：安卓端此前会漏同步主机新建的分类，这里用主机上报的活跃合集主动镜像补齐。
   /// 落地动作在 `CoreRepository.mirrorCollections`（**只增改、不删**，本机已删的
   /// 合集绝不复活）。这里只是把「要不要动界面」的判断做完：一行都没写就不用
   /// invalidate，免得每秒重建历史列表。
@@ -124,14 +124,14 @@ class AndroidSync {
   Future<int> mirrorHostCollections(Iterable<Collection> host) =>
       app.repo.mirrorCollections(host);
 
-  /// **只拉不推**的轻量同步（M17 第 5 条）：「Windows 有什么安卓就要有什么」。
+  /// **只拉不推**的轻量同步：「Windows 有什么安卓就要有什么」。
   ///
   /// 主机的本地 ops 水位涨了（改题目、改设置里的识别记录…）就会被叫一次。刻意不
   /// 复用 [runFull]：那条会 drain 离线队列并 push ops，一秒一次的频率下既重又可能
   /// 重复上传。这里只做 `pullFromPeer`（拉回来 LWW 落地），随后由宿主失效本地数据。
   /// 失败静默返回 0（下次水位再涨或重连时还会拉）。
   ///
-  /// 注意：合集**不靠这条通道**（M18 第 4 条）—— 主机删除合集的 op 在
+  /// 注意：合集**不靠这条通道**—— 主机删除合集的 op 在
   /// `CoreRepository.applyRemoteCollectionDeletes = false` 下不会落地，
   /// 手机本地的分组因此不会被删掉。
   Future<int> pullOpsOnly(PairingInfo info) async {
@@ -152,7 +152,7 @@ class AndroidSync {
   /// 固定只保留最近的 [kAndroidLocalImageLimit] 张本地原图，多出来的删最旧的
   /// （文本结果与元数据永久保留）。返回删除张数。
   ///
-  /// M47：**离线队列里任务引用的原图不参与清理** —— 队列上限 20 条、本地上限
+  /// **离线队列里任务引用的原图不参与清理** —— 队列上限 20 条、本地上限
   /// 20 张，两者一个量级，按时间剪最旧会把队首任务的原图先剪掉，那条任务之后
   /// 每次补跑都因为「取不到原图」永久失败。
   Future<int> pruneImages() async {

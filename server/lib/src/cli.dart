@@ -550,13 +550,13 @@ class ServerApp {
   /// 已经脱离控制台（转后台成功）。此后没有键盘可读，进程靠 stop / --stop 结束。
   bool _detached = false;
 
-  /// 本次是第几次启动（1 = 第一次；启动标识，用户要求）。
+  /// 本次是第几次启动（1 = 第一次；启动标识）。
   int runIndex = 0;
 
   /// **本次之前**那一次启动的时间。
   ///
   /// 不能用 `store.lastRunAt`：`noteStartup()` 把它写成「现在」了，状态块里会出现
-  /// 「上次 = 本次」，等于没话说（M45f 修）。
+  /// 「上次 = 本次」，等于没话说。
   int? _previousRunAt;
 
   /// runtime.json 是不是本次启动写的（不是就别去删别人的）。
@@ -737,9 +737,9 @@ class ServerApp {
   /// `--status` 会指到后启动的这个，而先启动的那个反倒没人找得到。
   ///
   /// 「真有一个实例在跑」的判据是**记录里的 PID 还活着**，不是「那个端口有没有人应答」
-  /// （M45f 修正）：运行文件里写着旧进程的端口，而那个端口恰好就是本实例这次要用的端口时，
+  /// 注意：运行文件里写着旧进程的端口，而那个端口恰好就是本实例这次要用的端口时，
   /// `server.start()` 之后再去 ping 它，答话的其实是**自己** → 误判「已经有一个实例在运行」
-  /// → 永远不写运行文件，`--stop` / `--status` 一直指着一个死进程（交付冒烟实测踩到）。
+  /// → 永远不写运行文件，`--stop` / `--status` 一直指着一个死进程。
   Future<void> _writeRuntimeFile(int port) async {
     final info = await _readRuntimeInfo();
     final recorded = (info['pid'] as num?)?.toInt();

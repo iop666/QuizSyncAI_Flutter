@@ -13,31 +13,31 @@ import 'settings/guide_settings_page.dart';
 import 'settings/hotkey_settings_page.dart';
 import 'settings/recognition_settings_page.dart';
 
-/// 设置页（M9 重构）：左侧固定导航 + 右侧独立滚动的内容区。
+/// 设置页：左侧固定导航 + 右侧独立滚动的内容区。
 ///
-/// 信息架构（用户 2026-09-19 要求；M32 用户需求 5 把「使用说明」提到第一项；
-/// M46 第 3 条删掉独立「赞助」页，赞助入口挪到「关于」页最下面）：
+/// 信息架构：「使用说明」排在第一项；独立「赞助」页已删除，
+/// 赞助入口挪到「关于」页最下面。
 /// 使用说明 / 显示设置 / API 配置 / 连接设备 / 识别设置 / 悬浮球设置 /
 /// 悬浮窗设置 / 热键设置 / 数据管理 / 关于。
 /// 左栏只负责「我在哪里」，右栏只负责「我能设置什么」——右侧只出现该分类的内容，
 /// 不再是一条很长、所有设置混在一起的页面。业务逻辑与数据结构完全不变。
 enum SettingsTab {
-  // M32 用户需求 5：第一项必须是「使用说明」，其余顺序整体后延一位。
+  //  第一项必须是「使用说明」，其余顺序整体后延一位。
   guide('使用说明', '可识别的方式与各项设置怎么用', Icons.menu_book_outlined),
   display('显示设置', '界面外观与文字大小', Icons.palette_outlined),
   api('API 配置', 'AI 服务、API Key 与调用限制', Icons.auto_awesome_outlined),
   device('连接设备', '与手机的局域网连接、配对与设备', Icons.wifi_tethering),
   recognition('识别设置', '自动识别、多页识别与本地图片缓存',
       Icons.center_focus_strong_outlined),
-  // 用户反馈 11：悬浮球设置夹在「识别设置」与「热键设置」之间。
+  // 悬浮球设置夹在「识别设置」与「热键设置」之间。
   ball('悬浮球设置', '桌面悬浮球的开关、大小、透明度与描边',
       Icons.bubble_chart_outlined),
-  // M32 用户需求 1：悬浮窗设置紧跟在悬浮球后面（两者都是桌面浮层）。
+  //  悬浮窗设置紧跟在悬浮球后面（两者都是桌面浮层）。
   floatWindow('悬浮窗设置', '桌面悬浮窗的开关、位置、比例与显示模式',
       Icons.select_all_outlined),
   hotkey('热键设置', '截屏识别与多页模式两个快捷键', Icons.keyboard_outlined),
   data('数据管理', '任务合集、导出、备份与日志', Icons.folder_outlined),
-  // M46 第 3 条：赞助支持挂在「关于」页最下面，不再单独占一栏。
+  // 赞助支持挂在「关于」页最下面，不再单独占一栏。
   about('关于', '版本、技术栈与开源许可', Icons.info_outline);
 
   const SettingsTab(this.label, this.description, this.icon);
@@ -114,7 +114,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         vertical: SettingsMetrics.pagePaddingV,
                       ),
                       child: Align(
-                        // 用户反馈 8：内容区原来靠左，界面缩放调小后右侧会空出
+                        // 内容区原来靠左，界面缩放调小后右侧会空出
                         // 一大片画布（深色主题下就是一片黑）。改为居中，
                         // 视觉上「窗口边界＝内容边界」。
                         alignment: Alignment.topCenter,
@@ -210,7 +210,7 @@ class _SettingsNav extends StatelessWidget {
   }
 }
 
-/// 右侧内容：切分类时**不做任何过渡动画**（用户反馈 3：删掉切换动效）。
+/// 右侧内容：切分类时**不做任何过渡动画**。
 class _SettingsContent extends StatelessWidget {
   final SettingsTab tab;
 

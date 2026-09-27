@@ -24,7 +24,7 @@ import '../../state/app_scope.dart';
 
 /// 悬浮窗设置。
 ///
-/// 变化（M34）：
+/// 变化：
 /// - 顶部只留图标按钮（下一条 / 上一条 / 重新识别 / 极简 / 锁定），
 ///   **删掉窗内字号按钮**，字号只在这里调；
 /// - 标题栏不再显示「共 N 题 / N 张图片」；
@@ -339,7 +339,7 @@ class _FloatWindowSettingsPageState
     );
   }
 
-  /// 选配色的同时摆好明暗模式（M43 第 3 条）。
+  /// 选配色的同时摆好明暗模式。
   ///
   /// 「纯净白」「紫罗兰」在浅色下正文/答案与底色对比度太低（用户报「颜色和背景色
   /// 高度接近，不明显」），所以选到这两套时**同时切到深色模式**；选别的配色只改配色，
@@ -357,7 +357,7 @@ class _FloatWindowSettingsPageState
     final scheme = theme.colorScheme;
     final selected = p.id == app.floatWindowPalette;
     final seed = Color(p.seed);
-    // 六套都是浅色系（M33 第 9 条），圆点底色统一用「种子色薄涂白」；
+    // 六套都是浅色系，圆点底色统一用「种子色薄涂白」；
     // 想整体变深色用下面的「明暗模式」。
     final bg = Color.alphaBlend(seed.withValues(alpha: 0.16), Colors.white);
     return InkWell(

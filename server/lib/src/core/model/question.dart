@@ -12,7 +12,7 @@ class Question {
   final String? questionNo;
   final String stem;
 
-  /// 阅读材料 / 文章原文（用户反馈 15）：阅读类题目才有。
+  /// 阅读材料 / 文章原文：阅读类题目才有。
   /// 空串 = 无材料；端侧在答案上方**默认折叠**显示，点击可展开。
   final String material;
 
@@ -29,10 +29,10 @@ class Question {
   final bool needReview;
   final bool answerInImage;
 
-  /// 题目不全（用户需求 2）：题干或选项被截断/缺失，卡片加黄框。
+  /// 题目不全：题干或选项被截断/缺失，卡片加黄框。
   final bool incomplete;
 
-  /// 答案是 AI 猜测（用户需求 2）：题干在但选项不全时 AI 推断的答案。
+  /// 答案是 AI 猜测：题干在但选项不全时 AI 推断的答案。
   final bool answerGuessed;
   final List<String> warnings;
 
@@ -85,7 +85,7 @@ class Question {
   /// 是否应显示「建议复核」徽标（`ai-contract.md` 第 6 节）。
   bool get shouldShowReviewBadge => needReview || confidence < 0.6;
 
-  /// 选项类题型但选项不足 2 个 → 判定为「题目不全」（用户需求 2）。
+  /// 选项类题型但选项不足 2 个 → 判定为「题目不全」。
   /// judge 的「对/错」由 fromAiJson 自动补齐，不会误判。
   bool get hasIncompleteOptions =>
       type.requiresOptions && options.length < minOptionsForType;
@@ -104,14 +104,14 @@ class Question {
         s.endsWith('与');
   }
 
-  /// 识别到的题号文本（用户需求 3）：`第 12 题`；无题号则 null。
+  /// 识别到的题号文本：`第 12 题`；无题号则 null。
   String? get questionNoLabel {
     final no = questionNo?.trim();
     if (no == null || no.isEmpty) return null;
     return '第 $no 题';
   }
 
-  /// 卡片/导出标题（用户需求 3）：排序序号在前，识别到的题号在后。
+  /// 卡片/导出标题：排序序号在前，识别到的题号在后。
   /// 例：`3. 第 12 题`；无题号时为 `3.`。
   String get displayTitle {
     final no = questionNoLabel;
@@ -120,10 +120,10 @@ class Question {
 
   bool get isDeleted => deletedAt != null;
 
-  /// 是否有阅读材料（用户反馈 15）：端侧据此渲染默认折叠的材料面板。
+  /// 是否有阅读材料：端侧据此渲染默认折叠的材料面板。
   bool get hasMaterial => material.trim().isNotEmpty;
 
-  /// 主观/填空答案是否已经是结构化多行（用户反馈 15）：AI 被要求分点作答，
+  /// 主观/填空答案是否已经是结构化多行：AI 被要求分点作答，
   /// 端侧对多行答案按行渲染（保留换行与序号），单行答案保持原样。
   bool get hasStructuredAnswer {
     final text = answerText ?? '';
@@ -330,7 +330,7 @@ class Question {
       needReview = true;
     }
 
-    // 用户需求 2：不完整的题目要给用户明确的可见标记，且答案为推断时要注明。
+    // 不完整的题目要给用户明确的可见标记，且答案为推断时要注明。
     // ① 单选题/多选题选项少于 2 项（被截断）→ incomplete；
     // ② 已有答案但不完整 → 该答案视为 AI 猜测（answer_guessed）；
     // ③ AI 显式声明 incomplete / answer_is_guess 时同样尊重。
@@ -351,7 +351,7 @@ class Question {
 
     final confidence = (json['confidence'] as num?)?.toDouble() ?? 0.5;
 
-    // 阅读材料（用户反馈 15）：只有阅读类题目才给；空串/缺省都当没有材料。
+    // 阅读材料：只有阅读类题目才给；空串/缺省都当没有材料。
     final material = (json['material']?.toString() ?? '').trim();
 
     return Question(

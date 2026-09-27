@@ -4,7 +4,7 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 
 import '../../state/app_scope.dart';
 
-/// 显示设置（M9，用户反馈 1/9）：
+/// 显示设置：
 /// 外观（主题三态 + 界面缩放）、题目显示（字号 + 字重，带实时预览）。
 class DisplaySettingsPage extends ConsumerStatefulWidget {
   const DisplaySettingsPage({super.key});
@@ -58,7 +58,7 @@ class _DisplaySettingsPageState extends ConsumerState<DisplaySettingsPage> {
                 onSelectionChanged: (v) => _save(app.copyWith(theme: v.first)),
               ),
             ),
-            // 用户反馈 7：界面缩放只给一档一档的下拉框（不再用进度条），
+            // 界面缩放只给一档一档的下拉框（不再用进度条），
             // 选完立刻生效，并且**自动把窗口边界按比例放大/缩小**，
             // 这样缩放后看得见的界面范围基本不变（窗口大小跟着走）。
             SettingsField(

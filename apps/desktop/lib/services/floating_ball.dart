@@ -12,7 +12,7 @@ import 'package:win32/win32.dart';
 
 import 'ball_paint.dart';
 
-/// 悬浮球三态（用户反馈 11）：每态一张图，主色**加深后**就是描边颜色。
+/// 悬浮球三态：每态一张图，主色**加深后**就是描边颜色。
 ///
 /// 资源由 `tool/make_icons.dart` 从 `icon/FloatingBall_*.png` 生成：
 /// **去掉球外的白底 + 圆形透明边**，因此可以缩放到任意大小而不带白方块。
@@ -31,7 +31,7 @@ enum BallState {
   final int mainColor;
 }
 
-/// 悬浮球鼠标手势（用户反馈 M16 第 2 条）。
+/// 悬浮球鼠标手势。
 enum BallGesture {
   /// 左键单击（未攒页 = 单图识别；攒页中 = 结束多页并识别）。
   tap,
@@ -48,8 +48,8 @@ enum BallGesture {
 /// 为什么不在按下 500ms 时用 `SetTimer` + `WM_TIMER` 直接触发：`WM_TIMER` 是
 /// 消息队列里**优先级最低**的消息（只在队列里没有别的消息时才生成）。用户按住
 /// 不放时，松手产生的 `WM_LBUTTONUP` 会先被处理，`_endDrag` 顺手 `KillTimer`，
-/// 于是一次长按被判成单击 —— 表现就是「长按不灵、跟右键不一样」（用户反馈
-/// M16 第 2 条：左键长按要**等于**右键，进入多页；结束多页仍是左键单击）。
+/// 于是一次长按被判成单击 —— 表现就是「长按不灵、跟右键不一样」。
+/// 预期行为是左键长按**等于**右键（进入多页）；结束多页仍是左键单击。
 ///
 /// 改成松手判定后不依赖任何计时器消息：长按与右键走**同一条分支**，语义完全
 /// 一致；拖动优先于长按（拖着球走不该再加一页）。纯逻辑，可在单测里断言。
@@ -59,7 +59,7 @@ class BallGestureTracker {
 
   /// 位移超过多少**逻辑**像素算拖动。
   ///
-  /// M47：这个值以前直接拿去和 `GetCursorPos` 的**物理**像素比 —— 150% / 200%
+  /// 这个值以前直接拿去和 `GetCursorPos` 的**物理**像素比 —— 150% / 200%
   /// 缩放下实际只剩 5.3 / 4 逻辑像素，手一抖就被判成拖动，单击识别很难点中。
   /// 现在由调用方按当前 DPR 折算成物理阈值写进 [clickSlop]。
   static const double clickSlopLogical = 8;
@@ -107,7 +107,7 @@ class BallGestureTracker {
   }
 }
 
-/// Windows 悬浮球（用户反馈 11）：**原生分层窗口** + `UpdateLayeredWindow`。
+/// Windows 悬浮球：**原生分层窗口** + `UpdateLayeredWindow`。
 ///
 /// 为什么不用第二个 Flutter 引擎：AGENTS.md 对安卓端的要求是「悬浮球用原生
 /// View，不要在 overlay 里跑第二个 Flutter 引擎」（生命周期与内存代价）。
@@ -118,10 +118,10 @@ class BallGestureTracker {
 /// - 拖动移动；松手吸附最近的左/右边缘（垂直位置保留）；
 /// - 8px 阈值区分点击与拖动；
 /// - **左键单击** → [onTap]；**左键长按 500ms 或右键**（两条完全等价）→
-///   [onLongPress] 追加一页进入多页模式（用户反馈 M16 第 2 条）；
+///   [onLongPress] 追加一页进入多页模式；
 /// - 截屏前隐藏、截完恢复，否则球会被拍进截图里。
 ///
-/// 描边是**向外**的（用户反馈 M16 第 1 条）：画布比球体本身大出描边宽度，
+/// 描边是**向外**的：画布比球体本身大出描边宽度，
 /// 环带整圈落在球体之外，见 [composeBallFrame]。
 class FloatingBall {
   FloatingBall({
@@ -159,7 +159,7 @@ class FloatingBall {
   int _bitmapSize = 0;
   bool _pixelsDirty = true;
 
-  /// 渲染缓存：预乘 BGRA 像素按「状态 + 尺寸 + 外观」缓存（用户反馈 M14 第 4 条）。
+  /// 渲染缓存：预乘 BGRA 像素按「状态 + 尺寸 + 外观」缓存。
   ///
   /// 悬浮球的图是**固定素材**，切状态时完全没必要重新 `decodePng` + `copyResize`
   /// + 逐像素预乘。实测（本机探针，300 次状态/外观切换）：不做缓存时进程 RSS 从
@@ -188,7 +188,7 @@ class FloatingBall {
   int _dragOriginX = 0;
   int _dragOriginY = 0;
 
-  /// 左键手势判定（松手时结算，用户反馈 M16 第 2 条）。
+  /// 左键手势判定（松手时结算）。
   final BallGestureTracker _gesture = BallGestureTracker();
 
   static int get _nowMs => DateTime.now().millisecondsSinceEpoch;
@@ -314,11 +314,11 @@ class FloatingBall {
       ? 0
       : (_strokeWidth * _devicePixelRatio).round();
 
-  /// 描边再往球**内**重叠的像素（M17 第 1 条：球不是标准圆，靠它填缝）。
+  /// 描边再往球**内**重叠的像素（球不是标准圆，靠它填缝）。
   int get _strokeInsetPx =>
       _strokePx == 0 ? 0 : (kBallStrokeInset * _devicePixelRatio).round();
 
-  /// 画布 / 窗口的像素边长 = 球 + 两侧描边余量（用户反馈 M16 第 1 条）。
+  /// 画布 / 窗口的像素边长 = 球 + 两侧描边余量。
   int get _targetPx => _ballPx + _strokePx * 2;
 
   /// 生成预乘 BGRA 像素并写进 DIB。
@@ -340,7 +340,7 @@ class FloatingBall {
       return;
     }
 
-    // M47：`rootBundle.load` 之后 `_state` / 外观字段可能已经变了，而 `_cacheKey`
+    // `rootBundle.load` 之后 `_state` / 外观字段可能已经变了，而 `_cacheKey`
     // 每次都读「此刻」的字段 —— 旧状态的图会被存进**新键**，于是错误的三态图
     // 一直用到尺寸/描边再变一次为止（异步竞态）。这里把本次渲染要用的状态、
     // 颜色与缓存键**先固定成快照**，加载与回写都用同一份。
@@ -354,7 +354,7 @@ class FloatingBall {
     final decoded = img.decodePng(data.buffer
         .asUint8List(data.offsetInBytes, data.lengthInBytes));
     if (decoded == null) throw StateError('悬浮球资源解码失败：${state.asset}');
-    // 球按**不含描边**的边长缩放，描边是长在球外面的（用户反馈 M16 第 1 条）。
+    // 球按**不含描边**的边长缩放，描边是长在球外面的。
     final art = img.copyResize(decoded,
         width: ballPx, height: ballPx, interpolation: img.Interpolation.cubic);
     final frame = composeBallFrame(
@@ -566,7 +566,7 @@ class FloatingBall {
         case WM_LBUTTONUP:
           _endDrag(hwnd);
           return 0;
-        // 右键与「左键长按」是**同一条分支**（用户反馈 M16 第 2 条）：
+        // 右键与「左键长按」是**同一条分支**：
         // 两个手势都只是「追加一页 / 进入多页」，具体是单图识别还是收尾识别
         // 由 Dart 侧按当前是否攒了页决定（见 `main.dart` 的 `_onBallTap`）。
         case WM_RBUTTONUP:
@@ -596,7 +596,7 @@ class FloatingBall {
     calloc.free(rect);
     _dragging = true;
     // 只记下按下时刻；**不**起计时器（见 BallGestureTracker 的注释）。
-    // M47：阈值按当前 DPR 折算 —— 手势坐标是物理像素，而「多少算拖动」是逻辑像素。
+    // 阈值按当前 DPR 折算 —— 手势坐标是物理像素，而「多少算拖动」是逻辑像素。
     _gesture.clickSlop =
         BallGestureTracker.clickSlopLogical * _devicePixelRatio;
     _gesture.press(x: _downX, y: _downY, nowMs: _nowMs);

@@ -10,7 +10,7 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 import '../../services/desktop_server.dart';
 import '../../state/app_scope.dart';
 
-/// 连接设备（M9）：服务状态、二维码配对、已配对设备。
+/// 连接设备：服务状态、二维码配对、已配对设备。
 /// 原来的「服务（Android 配对）」整块搬到这里，配对/吊销逻辑不变；
 /// 新增的只是「当前连接状态」这一块——数据来自服务端真实的 WS 连接数。
 class DeviceSettingsPage extends ConsumerStatefulWidget {
@@ -20,7 +20,7 @@ class DeviceSettingsPage extends ConsumerStatefulWidget {
   ConsumerState<DeviceSettingsPage> createState() => _DeviceSettingsPageState();
 }
 
-/// 「同一时间只支持一台安卓设备」的说明（M49 用户反馈：设置里要写清楚）。
+/// 「同一时间只支持一台安卓设备」的说明（ 设置里要写清楚）。
 ///
 /// 这不是随口写的限制：两端 `device_id` 都是固定字面量（安卓 `android-local`、
 /// Windows `windows-local`），配对、token、WS 槽位、在线计数全以它为主键 ——
@@ -42,7 +42,7 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
     lanIpAddress().then((ip) {
       if (mounted) setState(() => _lanIp = ip);
     });
-    // 用户反馈 8：一进「连接设备」页就自动刷新配对码与二维码
+    // 一进「连接设备」页就自动刷新配对码与二维码
     // （配对码 5 分钟过期，用户往往就是过期后才进来，进来看到新的最省事）。
     _refreshPairing();
     // 配对码倒计时与连接状态都要自己走秒，否则这个页面显示的是打开那一刻的快照。
@@ -65,7 +65,7 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
     super.dispose();
   }
 
-  /// 打开 / 关闭局域网连接（M32 用户需求 3）。
+  /// 打开 / 关闭局域网连接。
   ///
   /// 关着的时候内置服务端根本不启动（不监听端口）；打开时才启动 —— Windows 会
   /// 在这个时候弹防火墙授权窗口，也就是需求里说的「获取网络权限来授权」。
@@ -90,7 +90,7 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
     final controller = ref.watch(serverControllerProvider);
     final server = controller.server;
 
-    // 用户需求 3：总开关关着时，下方功能全部不可用（连服务端都不启动）。
+    // 总开关关着时，下方功能全部不可用（连服务端都不启动）。
     final switchGroup = SettingsGroup(
       title: '局域网连接',
       icon: Icons.wifi_tethering,
@@ -174,7 +174,7 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
     final payload = controller.qrPayload(_lanIp ?? '127.0.0.1');
     final remain = server.pairingExpiresAt - nowMs();
     final remainSeconds = remain <= 0 ? 0 : (remain / 1000).ceil();
-    // M47（用户实测反馈）：「在线」判据不能只看 WS 连接数 —— 手机端在前台时是
+    // 「在线」判据不能只看 WS 连接数 —— 手机端在前台时是
     // 每秒一次的 HTTP 轮询（HostStatusPoller），不建 WS，原来的 `connectedCount`
     // 会让设置页一直停在「等待手机连接」。
     final online = server.activeDeviceCount;
@@ -250,7 +250,7 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
                 ),
           ],
         ),
-        // M49：「同时只能一台安卓」的说明（放在整段最后，服务未启动时也看得到）。
+        // 「同时只能一台安卓」的说明（放在整段最后，服务未启动时也看得到）。
         const SettingsNote(text: kSingleAndroidDeviceNote),
       ],
     );
@@ -383,7 +383,7 @@ class _DeviceSettingsPageState extends ConsumerState<DeviceSettingsPage> {
   }
 
   /// 连接状态行（**不再自己画一张卡**：它已经在一个 SettingsGroup 模块卡片里，
-  /// 用户反馈 3「每个模块都有两个背景」就是这两层白底叠出来的）。
+  /// 「每个模块都有两个背景」的观感就是这两层白底叠出来的）。
   Widget _statusCard(
     BuildContext context, {
     required Color color,

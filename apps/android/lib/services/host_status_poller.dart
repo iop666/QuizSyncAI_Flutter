@@ -6,8 +6,8 @@ import 'package:quizsync_core/quizsync_core.dart';
 import '../state/app_state.dart';
 import 'live_updates.dart';
 
-/// 轮询间隔（用户反馈 M15 第 4 条原话：「又没有方法让他一直刷新，比如安卓端
-/// 1s 获取一次状态」）。做成常量而不是散落的字面量，是为了让测试能按同一个
+/// 轮询间隔（1 秒一次：安卓端要不靠手动操作也能持续刷新主机状态）。
+/// 做成常量而不是散落的字面量，是为了让测试能按同一个
 /// 节奏驱动，不必等真的 1 秒。
 const Duration kHostStatusPollInterval = Duration(milliseconds: 1000);
 
@@ -23,10 +23,10 @@ HostStatusProbe defaultHostStatusProbe(PairingInfo pairing) {
   return api.fetchActiveTask;
 }
 
-/// 主机状态轮询兜底（用户反馈 M15 第 4 条）。
+/// 主机状态轮询兜底。
 ///
-/// 为什么还要它：M14 已经做了「WS 断线重连后补齐 + 握手时补发进行中的本机
-/// 任务」，但用户那边**仍然**看不到刷新。最可能的原因是那台机器上 WS 推送
+/// 为什么还要它：WS 断线重连后补齐 + 握手时补发进行中的本机任务已经做了，
+/// 但用户那边**仍然**可能看不到刷新。最可能的原因是那台机器上 WS 推送
 /// 根本连不上 / 不稳定（而 HTTP 一直是好的 —— 手机→Windows 的上传是通的）。
 /// 所以除了推送，再加一条「问一句」的兜底：就算一条推送都没收到，界面也会
 /// 自己跟上。
@@ -61,7 +61,7 @@ class HostStatusPoller {
   /// **界面当前展示的任务签名**（`RefLiveUpdateSink` 注入，格式见
   /// [HostStatusPoller.signatureOf]）。
   ///
-  /// 为什么轮询器自己记的指纹还不够（M17 第 4 条）：它只说明**它通知过什么**，
+  /// 为什么轮询器自己记的指纹还不够：它只说明**它通知过什么**，
   /// 不说明**界面现在显示什么** —— 用户点过「忽略 / 知道了」把状态清空、或者
   /// 某次通知落在了正被结果页盖住的页面上，指纹相同就再也不会补发，用户看到
   /// 的就是「当前任务还是不刷新」。所以只要主机说的与界面显示的不一致，就再
@@ -69,16 +69,16 @@ class HostStatusPoller {
   final String Function()? uiSignature;
 
   /// 主机**本地 ops 水位**涨了 → 宿主做一次「只拉不推」的同步
-  /// （M17 第 5 条：Windows 上改题目等改动，手机前台 1 秒内跟上）。
+  /// （Windows 上改题目等改动，手机前台 1 秒内跟上）。
   final void Function()? onRemoteOps;
 
-  /// 主机上报的**当前活跃合集列表**（M18 第 4 条）。
+  /// 主机上报的**当前活跃合集列表**。
   ///
-  /// 用户原话：「安卓端现在识别不到无法同步 windows 端的分类，想办法完成同步」。
+  /// 背景：安卓端此前会漏同步主机新建的分类，这里用主机上报的活跃合集主动镜像补齐。
   /// 合集在手机本地那一行原来只能靠 ops 拉取落地，而拉取是被 `opsLamport`
   /// 水位这种**间接信号**触发的（基线错一次就永久漏）。这里直接把「主机现在有
   /// 哪些合集」这份**想要的结果**交给宿主去对齐本地库，差什么补什么、且与水位
-  /// 无关 —— 只要轮询在跑（用户要求「只要在前台就一秒一刷新」），就不会漏。
+  /// 无关 —— 只要轮询在跑，就不会漏。
   ///
   /// 只在列表**指纹变化**时（含第一次观测）调用一次，宿主侧落地是幂等的。
   /// 返回的 Future 会被等：写库失败时本轮不算数，下一轮探测会重试。
@@ -117,7 +117,7 @@ class HostStatusPoller {
   /// 不然每次开 App 都要白拉一次 ops）。
   int? _opsWatermark;
 
-  /// 上一次看到的主机合集列表指纹（M18 第 4 条；null = 还没镜像过）。
+  /// 上一次看到的主机合集列表指纹（null = 还没镜像过）。
   String? _hostCollections;
 
   bool get running => _timer != null;
@@ -184,7 +184,7 @@ class HostStatusPoller {
     final wasOffline = !_online;
     _online = true;
 
-    // 主机本地改动的水位（M17 第 5 条）：涨了就通知宿主「只拉一次 ops」。
+    // 主机本地改动的水位：涨了就通知宿主「只拉一次 ops」。
     // 第一次只建立基线；水位不涨时一个字节都不多发。
     if (view.opsLamport > 0) {
       final last = _opsWatermark;
@@ -198,7 +198,7 @@ class HostStatusPoller {
       }
     }
 
-    // 主机当前有哪些合集（M18 第 4 条）：把这份「想要的结果」交给宿主打进本地库。
+    // 主机当前有哪些合集：把这份「想要的结果」交给宿主打进本地库。
     // 第一次观测就要镜像（这一步不依赖任何水位基线，所以「基线错一次就永久漏」
     // 的老毛病不存在了）；之后只在指纹变化时再叫一次。
     final hostCollections = view.collections;
@@ -242,9 +242,9 @@ class HostStatusPoller {
     final firstObservation = _last == null;
     // 状态没变：一条通知都不发（每秒重建一次列表会抖，用户也看不出区别）。
     //
-    // 例外（M17 第 4 条）：**界面停在别的任务上**（签名非空且对不上）时必须补发
+    // 例外：**界面停在别的任务上**（签名非空且对不上）时必须补发
     // 一次 —— 上一次通知没落到界面上、或主机状态先到而后台丢了一轮时，指纹相同
-    // 就再也不发，界面会永远停在旧内容上（用户原话：「当前任务又不直接刷新」）。
+    // 就再也不发，界面会永远停在旧内容上。
     // 界面签名为空（用户主动点过「忽略 / 知道了」）= 用户不想再看，不补发。
     final hostSignature = signatureOf(view);
     final ui = uiSignature?.call() ?? '';
@@ -292,14 +292,14 @@ class HostStatusPoller {
     final sessionId = view.sessionId;
     if (raw == null || sessionId == null || sessionId.isEmpty) return;
 
-    // M47：闩锁记的是「会话 + 结果版本」指纹，不再是裸的 session_id ——
+    // 闩锁记的是「会话 + 结果版本」指纹，不再是裸的 session_id ——
     // 只记 session_id 时，同一会话的**新**结果（主机重新生成、或同图复用后再跑一次）
     // 会被永久吞掉，而 `protocol.md` 3.4.1 要求的判据是「这条结果已经在界面上」。
     final version = '${raw['updated_at'] ?? ''}|${raw['question_count'] ?? ''}';
     final fingerprint = '$sessionId|$version';
     if (_deliveredResult == fingerprint) return;
 
-    // 之前这里按「本地库里已经有同版本结果」就跳过。那个条件太宽了（M17 第 4 条）：
+    // 之前这里按「本地库里已经有同版本结果」就跳过。那个条件太宽了：
     // 主机**同图复用**会复用同一个 session_id，手机本地早就有这条记录，但界面还
     // 停在上一轮 —— 于是轮询的 done 被静默丢掉，用户看到的就是「当前任务不刷新」。
     // 真正该问的是「这条结果**已经在界面上**了吗」，也就是界面签名一致。

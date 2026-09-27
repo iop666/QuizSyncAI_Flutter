@@ -1,11 +1,11 @@
-/// 悬浮窗内容区的**富文本渲染**（M40）。
+/// 悬浮窗内容区的**富文本渲染**。
 ///
-/// 为什么要有它：M34 为了治卡顿把内容改成 `TextPainter` 直排，代价是**公式按 LaTeX
-/// 源码显示**、化学式没有上下标、材料里的表格退化成纯文本 —— 用户连着两轮不接受。
+/// 为什么要有它：`TextPainter` 直排治了卡顿，代价是**公式按 LaTeX
+/// 源码显示**、化学式没有上下标、材料里的表格退化成纯文本，观感不可接受。
 /// 与其把 `MathText` 的分块解析/化学小标/表格再实现一遍，不如直接把**主界面同一套
 /// `QuestionCard`** 离屏渲成位图：它与主界面天然一致，以后主界面改了悬浮窗也跟着改。
 ///
-/// 和 M33 那版的关键区别：**按片渲染**（M39 的切片骨架）。一帧只出可见区覆盖的
+/// 和  那版的关键区别：**按片渲染**（ 的切片骨架）。一帧只出可见区覆盖的
 /// 1–2 片（+1 片预取），所以「每帧跑一遍 widget 管线」那个卡顿源头不存在了 ——
 /// 滚动/悬停帧仍然只做内存拷贝，widget 管线只在外观或内容变化时跑。
 library;
@@ -55,7 +55,7 @@ class FloatRichSpec {
 
   /// 指纹：变了才重新量高度 / 重新出图。
   ///
-  /// ⚠️ **只允许放「会影响画面」的字段**（M40 实测教训）：指纹里一旦带上
+  /// ⚠️ **只允许放「会影响画面」的字段**（ 实测教训）：指纹里一旦带上
   /// `updatedAt` / `lamport` 这类记账字段，前台「每秒一次」的轮询碰到它就会把
   /// 整篇内容重渲一遍 —— 用户看到的是「滑动还是更卡」（内容越长越明显：
   /// 20 题 ≈ 3 片 ≈ 1.2 s，相当于一直在渲染）。所以这里逐字看题目内容本身。
@@ -175,11 +175,11 @@ class _Laid {
 
 /// 真正的离屏管线：`PipelineOwner + RenderView + RenderRepaintBoundary`。
 ///
-/// 要点（M33/M39 实测）：
+/// 要点（ 实测）：
 /// - 把 `RenderRepaintBoundary` 放进 `RenderPositionedBox`（= `Align`）里，它拿到**松约束**
 ///   并按内容自然尺寸收拢 → `boundary.size.height` 就是「内容有多高」，不用两遍排版；
 /// - [tileHeight] 为 null 时只量高度（不出图）；给定时把内容按 [tileTop] 上移、裁到该高度，
-///   于是位图正好是那一片（按片出图见 M39）。
+///   于是位图正好是那一片（按片出图见 ）。
 Future<_Laid?> _layout(
   FloatRichSpec spec, {
   required double devicePixelRatio,
@@ -313,7 +313,7 @@ class _RichHost extends StatelessWidget {
       child: Directionality(
         textDirection: TextDirection.ltr,
         child: Material(
-          // 内容区底色必须铺满：分层窗口里透明像素会露出桌面（M40 探针实测）。
+          // 内容区底色必须铺满：分层窗口里透明像素会露出桌面（ 探针实测）。
           color: backgroundArgb == 0
               ? const Color(0xFFFFFFFF)
               : Color(backgroundArgb),
@@ -333,7 +333,7 @@ class _RichHost extends StatelessWidget {
   }
 }
 
-/// 悬浮窗配色 → `ThemeData`（按「明暗 + 主色」缓存：每帧造主题是 M34 踩过的坑）。
+/// 悬浮窗配色 → `ThemeData`（按「明暗 + 主色」缓存：每帧造主题是  踩过的坑）。
 ThemeData _themeFor(FloatRichSpec spec) {
   final k = '${spec.dark ? 'd' : 'l'}|${spec.accent}';
   final hit = _themes[k];

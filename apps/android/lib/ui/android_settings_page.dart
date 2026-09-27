@@ -7,7 +7,7 @@ import '../state/app_info.dart';
 import '../state/providers.dart';
 import 'recognition_settings_page.dart';
 
-/// 设置 tab（用户需求 10/11）：外观（主题模式 + 字号，**已移除配色选择**）、
+/// 设置 tab：外观（主题模式 + 字号，**已移除配色选择**）、
 /// 识别模块总开关（默认关闭）+ 二级页入口、配对、关于。
 class AndroidSettingsPage extends ConsumerStatefulWidget {
   final Future<void> Function() onUnpair;
@@ -50,7 +50,7 @@ class _AndroidSettingsPageState extends ConsumerState<AndroidSettingsPage> {
               onChanged: (v) => settings.updateApp(
                   settings.app.copyWith(androidRecognitionEnabled: v)),
             ),
-            // M19 第 3 条：开启前先把代价说清楚（走局域网 + 第三方 AI，
+            // 开启前先把代价说清楚（走局域网 + 第三方 AI，
             // 比本机识别慢得多）。开关本身不拦人，只是知情。
             const SizedBox(height: AppSpacing.sm),
             const RecognitionSlowNote(),
@@ -136,7 +136,7 @@ class _AndroidSettingsPageState extends ConsumerState<AndroidSettingsPage> {
               subtitle: const Text('局域网搜题工具 · v$kAppVersion'
                   '\n答案由 AI 生成，仅供参考'),
             ),
-            // M17 第 3 条：关于页要标明项目地址。安卓端不引入 url_launcher
+            // 关于页要标明项目地址。安卓端不引入 url_launcher
             // （不为一个链接加平台插件）：点一下复制地址，用户自己粘到浏览器。
             ListTile(
               key: const ValueKey('about-github'),
@@ -159,7 +159,7 @@ class _AndroidSettingsPageState extends ConsumerState<AndroidSettingsPage> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    // 用户反馈：切了深色状态栏没跟着变。把「应用打算用的系统栏
+                    // 切了深色状态栏没跟着变。把「应用打算用的系统栏
                     // 样式」显示出来，一眼能区分是「App 没下发」还是「ROM 忽略」。
                     '当前界面：${_themeLabel(theme)} · 状态栏'
                     '${theme.brightness == Brightness.dark ? '深底浅图标' : '浅底深图标'}',

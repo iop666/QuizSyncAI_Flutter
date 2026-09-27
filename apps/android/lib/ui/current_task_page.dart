@@ -10,7 +10,7 @@ import '../state/providers.dart';
 import 'next_round_banner.dart';
 import 'result_page.dart';
 
-/// 「当前任务」tab（用户需求 1）：**安卓默认就是 Windows 的结果显示器**。
+/// 「当前任务」tab：**安卓默认就是 Windows 的结果显示器**。
 ///
 /// 页面主体只有两样东西：
 /// 1. 与电脑的连接状态（一行：已连接 / 未连接 / 还没选合集）；
@@ -21,7 +21,7 @@ import 'result_page.dart';
 /// 主机开始/结束识别靠 WS 事件（`LiveUpdates` → `RefLiveUpdateSink`）
 /// invalidate provider 自动刷新，用户不需要手动下拉。
 ///
-/// 用户需求 3 的「下一次识别」：页面上已经显示着上一轮结果时，新一轮识别
+/// 「下一次识别」：页面上已经显示着上一轮结果时，新一轮识别
 /// **不擦掉它**——只在最上方加一条悬浮窗（识别中 → 识别完成），完成后自动
 /// 进入新一轮的结果页。
 class CurrentTaskPage extends ConsumerStatefulWidget {
@@ -34,7 +34,7 @@ class CurrentTaskPage extends ConsumerStatefulWidget {
   ConsumerState<CurrentTaskPage> createState() => _CurrentTaskPageState();
 }
 
-/// 是否该自动进入结果页（用户需求 3）：主机任务完成 + App 在前台 + 还没跳过。
+/// 是否该自动进入结果页：主机任务完成 + App 在前台 + 还没跳过。
 ///
 /// 抽成纯函数是为了在没有设备的机器上也能断言「后台不抢前台」这条规则——
 /// 生命周期状态来自平台通道，widget 测试里读不到。
@@ -89,7 +89,7 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
         children: [
-          // 悬浮窗钉在页面最上方（用户需求 3）：新一轮识别中 / 新一轮已完成。
+          // 悬浮窗钉在页面最上方：新一轮识别中 / 新一轮已完成。
           if (task.showsPreviousResult)
             _nextBanner(context,
                 text: '${task.imageCount < 1 ? 1 : task.imageCount} 张图片识别中…',
@@ -118,8 +118,8 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
     ));
   }
 
-  /// 下一轮识别的悬浮窗（用户需求 3）。样式与结果页上那条共用
-  /// [NextRoundBanner]（用户反馈 M16 第 3 条）。
+  /// 下一轮识别的悬浮窗。样式与结果页上那条共用
+  /// [NextRoundBanner]。
   Widget _nextBanner(BuildContext context,
       {required String text, required bool spinning}) {
     return Padding(
@@ -134,7 +134,7 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
   }
 
   // ------------------------------------------------------------
-  // 与电脑的连接状态：**就一行**（用户需求 1）
+  // 与电脑的连接状态：**就一行**
   // ------------------------------------------------------------
 
   Widget _statusLine(BuildContext context, WidgetRef ref, ServerStatus status) {
@@ -210,13 +210,13 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
   }
 
   // ------------------------------------------------------------
-  // 电脑的任务结果（用户需求 1/7）
+  // 电脑的任务结果
   // ------------------------------------------------------------
 
   List<Widget> _resultCards(BuildContext context, WidgetRef ref,
       ServerStatus status, ActiveTask task) {
     if (task.running) {
-      // 用户需求 3：新一轮识别进行中时，页面上已经显示着的上一轮结果**不动**，
+      // 新一轮识别进行中时，页面上已经显示着的上一轮结果**不动**，
       // 只在最上方多一条悬浮窗（已在 build 里渲染）。
       if (task.showsPreviousResult) {
         return [
@@ -254,7 +254,7 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
 
   /// 已连接、还没开始任务。
   ///
-  /// 用户需求 4：连接状态在页面最上方的 `host-status` 卡片里已经说清楚，
+  /// 连接状态在页面最上方的 `host-status` 卡片里已经说清楚，
   /// 这里**只说明怎么开始**，不再重复一遍「已连接」。
   Widget _idleCard(BuildContext context) {
     final theme = Theme.of(context);
@@ -307,7 +307,7 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    // 用户需求 1/7：未完成时显示「N 张图片识别中…」。
+                    // 未完成时显示「N 张图片识别中…」。
                     '$pages 张图片识别中…',
                     key: const ValueKey('task-progress-text'),
                     style: theme.textTheme.titleSmall,
@@ -358,7 +358,7 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
     );
   }
 
-  /// 一轮识别的结果：直接显示答案（用户需求 1「完成显示答案」），
+  /// 一轮识别的结果：直接显示答案，
   /// 需要完整解析时再点「查看结果」。
   ///
   /// [sessionId] 显式传入：新一轮识别进行中时，这张卡片显示的是**上一轮**
@@ -448,7 +448,7 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 题目（序号 + 题号）与答案各占一半：用户反馈 9，原来答案是一个不受
+          // 题目（序号 + 题号）与答案各占一半：原来答案是一个不受
           // 约束的 Text，长答案 / 多行结构化答案会直接顶出屏幕右边。
           Expanded(
             child: Text(
@@ -474,7 +474,7 @@ class _CurrentTaskPageState extends ConsumerState<CurrentTaskPage>
   }
 }
 
-/// 在手机上切换主机的当前合集（用户需求 12 的友好补充）。
+/// 在手机上切换主机的当前合集。
 Future<void> pickHostCollection(BuildContext context, WidgetRef ref) async {
   final pairing = ref.read(pairingProvider);
   if (pairing == null) return;

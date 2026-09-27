@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:quizsync_core/quizsync_core.dart';
 import 'package:quizsync_ui/quizsync_ui.dart';
 
-/// 历史记录条目（M8 + 用户需求 13）：状态圆点 + 摘要 + 时间 + 来源。
+/// 历史记录条目：状态圆点 + 摘要 + 时间 + 来源。
 /// 左侧滑出或长按都触发**二次确认**删除。
 class SessionTile extends StatelessWidget {
   final Session session;

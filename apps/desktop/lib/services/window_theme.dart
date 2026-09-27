@@ -14,8 +14,8 @@ import '../state/app_info.dart' show kAppName;
 //   // window_manager-0.4.3/windows/window_manager.cpp:1034
 // 其中 `light_mode` 读的是**系统**的 `AppsUseLightTheme`：它把「应用想要的
 // 深色」和「系统当前是不是深色」做了个 AND。系统是浅色时，无论应用怎么设，
-// `enable_dark_mode` 永远是 FALSE —— 标题栏永远白着。用户反馈「切了深色
-// Windows 这边也不跟着变」就是这个原因（本机 `AppsUseLightTheme = 1`，
+// `enable_dark_mode` 永远是 FALSE —— 标题栏永远白着。表现为「切了深色
+// Windows 这边也不跟着变」（系统 `AppsUseLightTheme = 1` 时
 // 必然复现，与方法调用时机无关）。
 //
 // 所以这里自己调 `DwmSetWindowAttribute`：只看应用主题，不看系统设置。
@@ -51,12 +51,12 @@ int findAppWindow(String title) {
   }
 }
 
-/// 本应用的主窗口现在是不是**前台**窗口（M31 热键闸门用）。
+/// 本应用的主窗口现在是不是**前台**窗口（ 热键闸门用）。
 ///
 /// 一次判断同时覆盖三种「用户其实不在热键设置页里」的情况：窗口收进托盘
 /// （不是前台）、窗口最小化（不是前台）、用户切到了别的程序（前台是别人）。
 /// 这三种情况热键都必须照常生效 —— 用「进/出页面时改一个 bool」是做不出这个
-/// 语义的（M30 就这么把热键锁死过）。
+/// 语义的（ 就这么把热键锁死过）。
 bool appWindowIsForeground() {
   final hwnd = findAppWindow(kAppName);
   return hwnd != 0 && GetForegroundWindow() == hwnd;

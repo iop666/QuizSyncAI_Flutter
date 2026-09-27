@@ -6,7 +6,7 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 import '../state/app_scope.dart';
 import '../state/collections.dart';
 
-/// 任务合集选择（用户需求 8）：
+/// 任务合集选择：
 /// Windows **每次打开**都必须先选中一个合集；不存在任何合集时先新建并命名。
 /// 所有识别都落在当前选中的合集里（安卓端历史记录也按合集分组）。
 class CollectionGate extends ConsumerWidget {
@@ -103,7 +103,7 @@ class _CollectionPickerPageState extends ConsumerState<CollectionPickerPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  /// 上次使用的合集排首位（用户需求 8 每次打开都要选择，减少误选）。
+  /// 上次使用的合集排首位。
   static List<Collection> _sorted(
       List<Collection> list, String? lastUsedId) {
     if (lastUsedId == null || lastUsedId.isEmpty) return list;
@@ -292,7 +292,7 @@ class _CollectionPickerDialogState
     super.dispose();
   }
 
-  /// 删除合集（M19 第 2 条）。
+  /// 删除合集。
   ///
   /// 这个弹窗是**唯一随时可达**的合集入口（顶栏药丸 / 托盘 / 设置页都走它），
   /// 而原来只有启动时的合集选择页能删——用户进去才发现没有删除入口。

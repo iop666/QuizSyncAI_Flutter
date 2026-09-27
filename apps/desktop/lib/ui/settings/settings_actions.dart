@@ -9,7 +9,7 @@ import '../../services/shell_open.dart';
 import '../../state/app_scope.dart';
 import '../home_page.dart' show dataRootProvider;
 
-/// 数据管理页用到的几个文件操作（M9 从旧设置页原样搬出）。
+/// 数据管理页用到的几个文件操作（ 从旧设置页原样搬出）。
 /// 全部在应用数据目录下操作，失败一律给出可见提示而不是静默。
 const windowNewline = '\r\n';
 
@@ -83,7 +83,7 @@ Future<void> restoreFromLatestBackup(WidgetRef ref, BuildContext context) async 
   }
 }
 
-/// 导出全部历史（Markdown / JSON）。用户反馈 2：弹「另存为」让用户选位置，
+/// 导出全部历史（Markdown / JSON）。弹「另存为」让用户选位置，
 /// 默认目录是软件自己的数据目录（`<应用目录>/data/exports`）。
 Future<void> exportAllHistory(WidgetRef ref, BuildContext context,
     {required bool markdown}) async {

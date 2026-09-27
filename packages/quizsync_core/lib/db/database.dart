@@ -28,8 +28,8 @@ class QuizSyncDb extends _$QuizSyncDb {
   bool ftsAvailable = true;
 
   /// v2：+ collections / session_images，sessions.collection_id，
-  /// questions.incomplete / answer_guessed（用户需求 2/4/8）。
-  /// v3：questions.material（用户反馈 15：阅读类题目的材料，端侧默认折叠）。
+  /// questions.incomplete / answer_guessed。
+  /// v3：questions.material。
   @override
   int get schemaVersion => 3;
 
@@ -50,7 +50,7 @@ class QuizSyncDb extends _$QuizSyncDb {
           }
         },
         onUpgrade: (m, from, to) async {
-          // v1 → v2（用户需求 2/4/8）：新增合集表与多页图片表，
+          // v1 → v2：新增合集表与多页图片表，
           // sessions 加 collection_id，questions 加不全/AI 猜测标记，
           // tasks 加离线队列的 payload_json（多页页序 + 合集归属）。
           // 全部为新增列（可空或带默认值），旧数据不丢。
@@ -62,7 +62,7 @@ class QuizSyncDb extends _$QuizSyncDb {
             await m.addColumn(questions, questions.answerGuessed);
             await m.addColumn(tasks, tasks.payloadJson);
           }
-          // v2 → v3（用户反馈 15）：阅读类题目的材料列，带默认值，旧数据不丢。
+          // v2 → v3：阅读类题目的材料列，带默认值，旧数据不丢。
           if (from < 3) {
             await m.addColumn(questions, questions.material);
           }
@@ -126,7 +126,7 @@ class QuizSyncDb extends _$QuizSyncDb {
     return rows.first.readNullable<int>('m') ?? 0;
   }
 
-  /// 同步 ops 总行数（快照折叠的触发条件用，M6）。
+  /// 同步 ops 总行数（快照折叠的触发条件用）。
   Future<int> syncOpsCount() async {
     final rows = await customSelect('SELECT COUNT(*) AS c FROM sync_ops').get();
     return rows.first.read<int>('c');

@@ -26,7 +26,7 @@ import 'pairing_page.dart';
 // `result_page.dart` 里（相册选图与结果页的手动重试共用）。
 import 'result_page.dart';
 
-/// Android 主壳（用户需求 6）：**底部三标签**「当前任务 / 历史记录 / 设置」，
+/// Android 主壳：**底部三标签**「当前任务 / 历史记录 / 设置」，
 /// 默认打开「当前任务」；同时负责悬浮球 / 截屏流程 / WS 自动刷新 / 相册上传。
 class AndroidHomePage extends ConsumerStatefulWidget {
   final PairingInfo? pairing;
@@ -54,7 +54,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
   late final LiveUpdates _liveUpdates;
   late final LiveSyncService _syncService;
 
-  /// 轮询兜底（用户反馈 M15 第 4 条）：就算一条 WS 推送都没收到，
+  /// 轮询兜底：就算一条 WS 推送都没收到，
   /// 「当前任务」页也会自己跟上主机。
   late final HostStatusPoller _statusPoller;
 
@@ -77,19 +77,19 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     _syncService = LiveSyncService(
       app: app,
       onMessage: _liveUpdates.handle,
-      // M14 第 6 条：WS 断线重连的窗口里，主机推的 `task_update` /
+      // WS 断线重连的窗口里，主机推的 `task_update` /
       // `task_result` 全丢了（用户看到「安卓端一点反应没有」）。连上就补拉一次。
       onReconnected: _onLiveSyncRestored,
     );
-    // M15 第 4 条：轮询与 WS **共用同一个 LiveUpdates**，所以「识别中 / 自动进
+    // 轮询与 WS **共用同一个 LiveUpdates**，所以「识别中 / 自动进
     // 结果页 / 本机发起的识别静默」三条语义天然一致，不存在第二套 UI 逻辑。
     //
-    // M17：再加两条 —— ① `uiSignature` 让轮询器能发现「界面停在别的任务上」
+    // 再加两条 —— ① `uiSignature` 让轮询器能发现「界面停在别的任务上」
     // 并补发一次（用户第二次反馈「当前任务又不直接刷新」）；② `onRemoteOps`
     // 在主机本地 ops 水位上涨时让宿主**只拉一次** ops。
     //
-    // M18 第 4 条：③ `onHostCollections` —— 主机每秒上报的「当前活跃合集列表」
-    // 直接镜像进本地库（只增改不删）。用户反馈「安卓端识别不到 windows 端的分类」：
+    // ③ `onHostCollections` —— 主机每秒上报的「当前活跃合集列表」
+    // 直接镜像进本地库（只增改不删）。此前安卓端识别不到 Windows 端的分类：
     // 合集原来只靠 ops 拉取落地，而拉取被 ops 水位这种间接信号触发，基线错一次就
     // 永久漏；改成按**想要的结果**对齐，差什么补什么。
     _statusPoller = HostStatusPoller(
@@ -105,7 +105,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
       captureSource: MethodChannelCaptureSource(),
       onResultReady: (sessionId) {
         if (!mounted) return;
-        // 用户需求 3：识别全程静默——不跳「识别中」页、也不自动跳结果页，
+        // 识别全程静默——不跳「识别中」页、也不自动跳结果页，
         // 只把「当前任务」的状态与本地数据刷新掉（通知栏由控制器负责）。
         ref.read(activeTaskProvider.notifier).done(sessionId: sessionId);
         _invalidateLocalData();
@@ -113,8 +113,8 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
       onMessage: _snack,
     )
       ..onTaskSubmitted = ({required int imageCount, String? sessionId}) {
-        // 用户需求 7：当前任务页显示「N 张图片识别中…」。
-        // 用户需求 3：本机识别全程静默——**不切标签、不跳页**，
+        // 当前任务页显示「N 张图片识别中…」。
+        // 本机识别全程静默——**不切标签、不跳页**，
         // 只更新当前任务页的状态。
         ref.read(activeTaskProvider.notifier).begin(
               sessionId: sessionId,
@@ -145,7 +145,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     if (!mounted) return;
     setState(() => _imageDir = dir);
     // 悬浮球截屏也要落盘，否则离线补跑取不到原图（队列会卡死）；
-    // 存完顺带清理最旧的原图（M14 第 7 条：安卓端固定只留最近 20 张）。
+    // 存完顺带清理最旧的原图（安卓端固定只留最近 20 张）。
     _captureController.saveImageFile = (hash, bytes) async {
       final sync = AndroidSync(app: _app, imageDir: dir);
       await sync.saveImageFile(hash, bytes);
@@ -167,7 +167,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     unawaited(_backgroundSync());
   }
 
-  /// 识别模块开关（用户需求 11）：关着时**悬浮球不显示**、也不连主机。
+  /// 识别模块开关：关着时**悬浮球不显示**、也不连主机。
   Future<void> _applyRecognitionState() async {
     // 轮询只在「已配对 + 前台」时才需要，与识别模块开关无关：识别模块关掉时
     // 「当前任务」页仍然是 Windows 的结果显示器，照样要能自己刷新。
@@ -181,7 +181,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
         final appearance = await BallAppearance.load(app.repo);
         await CaptureBridgeCalls.setBallAppearance(
             opacity: appearance.opacity, sizeDp: appearance.sizeDp);
-        // M47：尊重「显示悬浮球」开关（`recognition_settings_page` 里落库的那个）。
+        // 尊重「显示悬浮球」开关（`recognition_settings_page` 里落库的那个）。
         // 原来这里无条件把球打开，用户关掉球之后只要改任何一项设置就又冒出来。
         final ballWanted = await BallAppearance.loadEnabled(app.repo);
         final availability = await MethodChannelCaptureSource().availability();
@@ -227,7 +227,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     unawaited(_applyRecognitionState());
   }
 
-  /// 轮询的启停（用户反馈 M15 第 4 条）。
+  /// 轮询的启停。
   ///
   /// 配对成功且 App 在前台时跑；取消配对 / 进后台时停。重复调用是安全的
   /// （`HostStatusPoller.start` 只重启定时器、保留同一配对的基线）。
@@ -258,7 +258,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     // 后台不必每秒去打扰主机；回前台立刻恢复（基线保留，后台期间的结果不会丢）。
     _applyPollingState();
     if (state == AppLifecycleState.resumed) {
-      // M49：回到前台时丢掉积压的提示（后台期间的消息已由系统 Toast 显示过，
+      // 回到前台时丢掉积压的提示（后台期间的消息已由系统 Toast 显示过，
       // 见 `_snack`），否则用户一回来就要把攒下的提示逐条看完。
       ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
       unawaited(ref.read(serverStatusProvider.notifier).refresh(widget.pairing));
@@ -267,7 +267,6 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
 
   /// 应用内轻提示。
   ///
-  /// M49（用户反馈「识别期间攒下的提示，回到应用后一个一个跳出来，直到结束」）：
   /// 提示是**瞬时**反馈，不该排队。两条规则：
   /// ① 人在别的应用里时**不入队** —— 悬浮球手势期间 App 在后台，每条提示都已经
   ///    由 `AndroidCaptureController._notify` 以系统 Toast 显示过（用户当时就看到了），
@@ -282,7 +281,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// WS 重新连上（含首次连上）后的补齐（M14 第 6 条）。
+  /// WS 重新连上（含首次连上）后的补齐。
   ///
   /// 只靠长连接推送是不够的：断线期间主机产生的本机任务状态与结果不会重发，
   /// 重连后必须自己「先拉后推」补一次，界面才会跟上。
@@ -340,15 +339,15 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     }
   }
 
-  /// 主机的本地 ops 水位涨了 → 只拉一次 ops（M17 第 5 条）。
+  /// 主机的本地 ops 水位涨了 → 只拉一次 ops。
   ///
   /// 防抖：主机一次批量写入会让水位连着涨几级，一次拉取就够了（拉取自身按
   /// 游标增量返回，重复调用也不重复落地）。
   bool _pullingOps = false;
 
-  /// 主机上报的合集列表 → 镜像进本地库（M18 第 4 条）。
+  /// 主机上报的合集列表 → 镜像进本地库。
   ///
-  /// 用户原话：「安卓端现在识别不到无法同步 windows 端的分类，想办法完成同步」。
+  /// 背景：安卓端此前会漏同步主机新建的分类，这里用主机上报的活跃合集主动镜像补齐。
   /// 这条不依赖 WS、也不依赖 ops 水位：只要 1 秒一次的轮询在跑，主机上新建/改名
   /// 的合集就会出现在手机「历史」里（只增改，不删 —— 主机删掉的合集在手机保留）。
   Future<void> _mirrorHostCollections(List<Collection> collections) async {
@@ -400,7 +399,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
               onPaired: (info) {
                 // 重新配对会作废旧 token：立刻把新的配对信息交给宿主。
                 widget.onRepaired?.call(info);
-                // 用户反馈 M14 第 5 条：配对成功后要「跳转到当前任务」——
+                // 配对成功后要「跳转到当前任务」——
                 // 标签已由配对页切到 0，这里再把配对页收掉，用户才真的回到
                 // 主界面（DECISIONS.md 里「推入场景仍走 pop」的本意，
                 // pop(true) 同时让下面那句 SnackBar 生效）。
@@ -480,7 +479,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
       body: IndexedStack(
         index: tab,
         children: [
-          // 用户需求 1：当前任务页只显示 Windows 的任务结果，
+          // 当前任务页只显示 Windows 的任务结果，
           // 本机识别的一切入口都在「设置 → 识别模块」。
           const CurrentTaskPage(),
           const HistoryTab(),
@@ -530,7 +529,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
   }
 
   // ------------------------------------------------------------
-  // 相册选图（用户需求 11：识别模块关着时入口不可用）
+  // 相册选图
   // ------------------------------------------------------------
 
   Future<void> _pickAndUpload() async {
@@ -545,8 +544,8 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     }
     final status = ref.read(serverStatusProvider);
     if (status.online && !status.hasActiveCollection) {
-      // 用户需求 12：先确认主机已选合集，不静默失败。
-      // 不切标签也不跳页：本机识别一律静默（用户需求 3）。
+      // 先确认主机已选合集，不静默失败。
+      // 不切标签也不跳页：本机识别一律静默。
       _snack(kNoActiveCollectionMessage);
       return;
     }
@@ -572,7 +571,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
     }
 
     ref.read(activeTaskProvider.notifier).begin(imageCount: 1);
-    // 用户需求 3：相册选图也走静默路径——不压「识别中」页，
+    // 相册选图也走静默路径——不压「识别中」页，
     // 采集与上传在后台完成，「当前任务」页自然更新。
     final result = await _uploadFromGallery(pairing, jpeg);
     if (!mounted) return;
@@ -638,7 +637,7 @@ class _AndroidHomePageState extends ConsumerState<AndroidHomePage>
   }
 }
 
-/// WS 事件 → Riverpod（用户需求 1/7：主机开始识别后自动刷新，不靠手动下拉）。
+/// WS 事件 → Riverpod。
 ///
 /// 公开类型（而不是私有 `_RefSink`）是为了让 widget 测试能直接构造它，
 /// 断言「一条 `task_update` / `task_result` 消息就能让当前任务页更新」。
@@ -688,7 +687,7 @@ class RefLiveUpdateSink implements LiveUpdateSink {
     required int questionCount,
     bool selfInitiated = false,
   }) {
-    // 用户需求 3：主机发起的识别完成后自动进入结果页；本机自己发起的识别
+    // 主机发起的识别完成后自动进入结果页；本机自己发起的识别
     // 保持静默（主机也会把这条结果广播回来，不能因此跳页）。
     ref
         .read(activeTaskProvider.notifier)

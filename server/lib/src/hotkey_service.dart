@@ -48,7 +48,7 @@ abstract class HotkeyRegistrar {
 /// ## 为什么是「一个长期存活的 isolate + 固定 id + 显式注销」
 ///
 /// 这一段是照抄主项目 `apps/desktop/lib/services/hotkey_service.dart` 的结论
-/// （M12 实测踩过的坑），Server 里同样成立：
+/// （ 实测踩过的坑），Server 里同样成立：
 ///
 /// 1. `RegisterHotKey(NULL, id, ...)` 把热键绑在**线程**的消息队列上；
 /// 2. Dart 的 isolate 线程会回到 VM 线程池被复用，isolate 退出 ≠ 线程退出，
@@ -60,7 +60,7 @@ abstract class HotkeyRegistrar {
 /// 所以：所有热键共用一个 isolate、每个槽位固定 id、每次注册前先 `UnregisterHotKey`
 /// 同 id、退出前显式注销全部。
 ///
-/// ## 但 isolate 的线程**并不是**固定的（M45f 实测，用户报「转后台再打开窗口后热键全失效」）
+/// ## 但 isolate 的线程**并不是**固定的
 ///
 /// 以前这里是「共用一个 isolate ⇒ 线程不再换手」，实测**不成立**：这个 isolate 每
 /// `await` 一次，VM 就可能把它调度到另一条池线程上。诊断版 exe 每轮打印
@@ -393,7 +393,7 @@ class HotkeyService implements HotkeyRegistrar {
 
 /// 后台热键线程：注册 + `PeekMessageW` 轮询泵。
 ///
-/// ## 这个函数**绝不能 await**（M45f 的关键结论）
+/// ## 这个函数**绝不能 await**
 ///
 /// `RegisterHotKey(NULL, …)` 把注册挂在**调用它的那条线程**上，而 Dart 的 isolate
 /// 只要 `await` 一次就可能被 VM 调度到另一条池线程（诊断版实测：28 秒 327 次换手，
@@ -591,7 +591,7 @@ void _hotkeyLoop(List<dynamic> args) {
 }
 
 /// Win32 MSG（x64，48 字节）。Dart FFI Struct 默认 packed，必须手工补对齐字段，
-/// 否则 PeekMessageW 写越界且 wParam 错位（M12 实测）。
+/// 否则 PeekMessageW 写越界且 wParam 错位（ 实测）。
 final class MSG extends Struct {
   @IntPtr()
   external int hwnd;

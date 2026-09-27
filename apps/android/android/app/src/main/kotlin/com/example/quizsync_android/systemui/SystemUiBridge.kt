@@ -8,13 +8,11 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * 系统栏（状态栏 / 导航栏）外观桥（M13，保持极薄：只做「显示窗口」这一层）。
+ * 系统栏（状态栏 / 导航栏）外观桥（保持极薄：只做「显示窗口」这一层）。
  *
  * ## 为什么不能只靠 Flutter 的 `SystemChrome.setSystemUIOverlayStyle`
  *
- * 反编译本项目实际使用的引擎产物
- * （`bin/cache/artifacts/engine/android-arm64-release/flutter.jar` →
- * `io.flutter.plugin.platform.PlatformPlugin`）可以看到：
+ * 引擎自带的 `io.flutter.plugin.platform.PlatformPlugin` 对状态栏底色的处理是：
  *
  * ```
  * aload statusBarColor; ifnull skip
@@ -23,7 +21,7 @@ import io.flutter.plugin.common.MethodChannel
  * ```
  *
  * 也就是说 **Android 15（API 35）及以上，引擎根本不设状态栏底色**，只设图标明暗
- * （`WindowInsetsControllerCompat.setAppearanceLightStatusBars`）。M10/M11 两轮
+ * （`WindowInsetsControllerCompat.setAppearanceLightStatusBars`）。
  * 「显式配色」因此在 15+ 机器上注定无效：用户看到的是**启动窗口主题**里那个
  * `android:statusBarColor`（平台默认黑色），切浅色/深色都不动 —— 这正是
  * 「状态栏不跟着主题变化」的根因。

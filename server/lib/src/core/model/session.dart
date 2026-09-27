@@ -7,7 +7,7 @@ class Session {
   /// 发起端生成的幂等 id。
   final String? taskId;
 
-  /// 所属合集（用户需求 8）。旧数据为 null → 显示「未分类」。
+  /// 所属合集。旧数据为 null → 显示「未分类」。
   final String? collectionId;
   final String imageHash;
   final String sourceDevice;

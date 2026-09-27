@@ -17,7 +17,7 @@ import 'float_window_selection.dart';
 import 'float_window_view.dart';
 import 'remote_task.dart';
 
-/// 悬浮窗的「数据 + 动作 + 排版 + 合成」胶水（M32 / M33 / M34 / M36）。
+/// 悬浮窗的「数据 + 动作 + 排版 + 合成」胶水。
 ///
 /// 每次推帧做四件事：
 /// 1. 取识别记录（时间倒序）与当前那次的题目（数据变化时）；
@@ -25,7 +25,7 @@ import 'remote_task.dart';
 /// 3. `float_window_view.dart` 的纯函数排窗口外观（第一栏 + 底部按钮 + 提示）；
 /// 4. `FloatFrameComposer` 分块缓存 + CPU 合成出像素，交给原生分层窗口。
 ///
-/// M36 的要点：**只有内容或外观变化时才出图**，滚动/悬停这类帧纯内存拷贝
+///  的要点：**只有内容或外观变化时才出图**，滚动/悬停这类帧纯内存拷贝
 /// （原来每帧都要 `Picture.toImage` + 4 MB 读回，约 40 ms，用户报「很卡」）。
 class FloatWindowPresenter {
   FloatWindowPresenter({
@@ -49,13 +49,13 @@ class FloatWindowPresenter {
     /// 富文本等「帧永不等出图」做扎实了再开。
     this.useRichContent = false,
 
-    /// 写剪贴板（M42「复制本题答案」/右键复制所选）；单测注入记录用。
+    /// 写剪贴板（「复制本题答案」/右键复制所选）；单测注入记录用。
     Future<void> Function(String text)? writeClipboard,
   })  : contentBuilder = contentBuilder ?? FloatContentBuilder(),
         _writeClipboard = writeClipboard ?? _defaultClipboardWrite,
         _measureRich = measureRichContent ?? measureRichContentHeight,
         _rasterRich = rasterRichContent ?? rasterRichTile {
-    // 合成器的内容片交给富文本渲染（M40）：公式/化学式/表格与主界面同源。
+    // 合成器的内容片交给富文本渲染：公式/化学式/表格与主界面同源。
     // 单测会自己塞一个假合成器，所以这里只在没给的时候接管。
     this.composer = composer ??
         FloatFrameComposer(
@@ -81,7 +81,7 @@ class FloatWindowPresenter {
   /// 链路上，滚动就会被它拖住。开着时单个内容片高 [kFloatRichChunkHeight]。
   final bool useRichContent;
 
-  /// 分块缓存 + CPU 合成（M36）：只有内容/外观变化时才出图。
+  /// 分块缓存 + CPU 合成：只有内容/外观变化时才出图。
   late final FloatFrameComposer composer;
 
   /// 老的 `TextPainter` 直排内容构建器：富文本渲染上线后不再用于出图，
@@ -156,7 +156,7 @@ class FloatWindowPresenter {
     final current = currentSessionId;
     _sessions = list;
     var keepScroll = false;
-    // M44 第 5 条：手机刚识别完，列表一到就跳到最新那一次（见 [onRemoteTask]）。
+    // 手机刚识别完，列表一到就跳到最新那一次（见 [onRemoteTask]）。
     if (_jumpToNewest) {
       _jumpToNewest = false;
       _index = 0;
@@ -175,7 +175,7 @@ class FloatWindowPresenter {
     unawaited(_reload(keepScroll: keepScroll, force: true));
   }
 
-  /// 手机（安卓）发起的任务状态（M44 第 5 条）。
+  /// 手机（安卓）发起的任务状态。
   ///
   /// 用户报「windows 端悬浮窗显示时，若在手机端搜题，悬浮窗不会同步状态与跳转
   /// 新界面」：以前悬浮窗只认本机 coordinator 的 busy 与「保留当前会话」的策略，
@@ -240,7 +240,7 @@ class FloatWindowPresenter {
   /// 「正在识别」状态变化：识别中显示提示；结束后跳回最新那次。
   void onBusyChanged() {
     if (!coordinator.busy) {
-      // 用户需求 1.10：结束后跳转最新识别界面。
+      // 结束后跳转最新识别界面。
       _index = 0;
       _scroll = 0;
       unawaited(_reload(keepScroll: false));
@@ -251,7 +251,7 @@ class FloatWindowPresenter {
 
   /// 极简模式下的文本选区（**内容坐标**；null = 没有选区）。
   ///
-  /// 用户口径（M42）：「希望极简模式可以变成可选中字符的形式，便于我的选中与复制」。
+  /// 用户口径：「希望极简模式可以变成可选中字符的形式，便于我的选中与复制」。
   /// 选区存在内容坐标里，所以滚动时选区跟着内容走。
   FloatTextSelection? _selection;
 
@@ -262,7 +262,7 @@ class FloatWindowPresenter {
   String? _tip;
   Timer? _tipTimer;
 
-  /// 手机端任务是否正在识别（M44 第 5 条）：悬浮窗的「识别中」浮层要对两头都亮。
+  /// 手机端任务是否正在识别：悬浮窗的「识别中」浮层要对两头都亮。
   bool _remoteBusy = false;
 
 
@@ -290,7 +290,7 @@ class FloatWindowPresenter {
       return app.floatWindowX
           .clamp(0.0, (screen.width - w).clamp(0.0, screen.width));
     }
-    // 默认：屏幕右侧、不贴边（用户需求 1.6）。
+    // 默认：屏幕右侧、不贴边。
     return (screen.width - w - kFloatWindowDefaultMarginX)
         .clamp(0.0, screen.width);
   }
@@ -364,7 +364,7 @@ class FloatWindowPresenter {
       index: _index,
       total: total,
       createdAt: session?.createdAt ?? 0,
-      // M44 第 5 条：手机在搜题时，悬浮窗也要显示「手机正在识别…」。
+      // 手机在搜题时，悬浮窗也要显示「手机正在识别…」。
       busy: coordinator.busy || _remoteBusy,
       busyText: coordinator.busy ? coordinator.busyLabel : '手机正在识别…',
       minimal: app.floatWindowMinimal,
@@ -387,7 +387,7 @@ class FloatWindowPresenter {
     );
   }
 
-  /// 极简模式（M33 第 7/12 条）下先把题目裁剪成「只看题目答案」。
+  /// 极简模式下先把题目裁剪成「只看题目答案」。
   List<Question> _viewQuestions(AppSettings app) => app.floatWindowMinimal
       ? _questions.map(abstractQuestion).toList()
       : _questions;
@@ -420,7 +420,7 @@ class FloatWindowPresenter {
           FloatWindowTheme.followApp => appIsDark(),
         };
 
-        // 1) 内容：主界面同一套 `QuestionCard` 富文本渲染（M40，公式/化学式/表格
+        // 1) 内容：主界面同一套 `QuestionCard` 富文本渲染（公式/化学式/表格
         //    与主界面一致）。这里只**量高度**（按指纹缓存），出图交给合成器按片做。
         var chrome = layoutFloatWindow(buildModel(), width: w, height: h);
         final tChrome = sw.elapsedMicroseconds;
@@ -504,7 +504,7 @@ class FloatWindowPresenter {
         _frame = chrome;
         final tLayout = sw.elapsedMicroseconds;
 
-        // 极简模式的文本选区（M42）：纯函数重算一遍（几微秒），再换算成**窗口坐标**
+        // 极简模式的文本选区：纯函数重算一遍（几微秒），再换算成**窗口坐标**
         // 交给合成器直接调像素（`_paintSelection`）。
         _selectionResult = app.floatWindowMinimal && _selection != null
             ? resolveSelection(contentNodes, _selection)
@@ -518,15 +518,15 @@ class FloatWindowPresenter {
               ];
 
         // 3) 分块合成：内容/外观没变时这里只做内存拷贝（微秒级），不再出图。
-        // M38：热路径（滚动/悬停，三块都在缓存里）走**同步**合成 + **同步**贴帧，
+        // 热路径（滚动/悬停，三块都在缓存里）走**同步**合成 + **同步**贴帧，
         // 一次 await 都不做。
         //
-        // 为什么连 `await window.setFrame(...)` 都不能有（M38 实测，同一份 exe 做 A/B）：
+        // 为什么连 `await window.setFrame(...)` 都不能有（ 实测，同一份 exe 做 A/B）：
         // 悬浮窗的滚轮/悬停回调是从**窗口过程**（原生回调）里进到 Dart 的，此时排下的
         // 微任务要等平台线程下一次唤醒才会被跑到 —— 而平台线程只在「有 Dart 定时器到期」
         // 或「来了新的窗口消息」时才被唤醒。实测同一次滚动：
         //   贴帧 await 在（有 200ms 定时器时）1–6 ms，在（没有定时器时）**390–670 ms**，
-        //   整帧因此从 7 ms 变成 671 ms、帧率掉到 ~1 fps（用户原话「滚动卡的不能用」）。
+        //   整帧因此从 7 ms 变成 671 ms、帧率掉到 ~1 fps。
         // `setFrame` 的实现体里没有任何 await（纯 win32：写 DIB + `UpdateLayeredWindow`），
         // 所以不 await 它并不会「没画上去」—— 它本来就是同步画完的，await 只买到一次微任务。
         final fast = composer.composeFast(
@@ -735,7 +735,7 @@ class FloatWindowPresenter {
         await saveSettings(
             app.copyWith(floatWindowLocked: !app.floatWindowLocked));
       case FloatAction.toggleMinimal:
-        // 关掉极简模式就清掉选区（富文本/卡片模式里不提供拖选，M42）。
+        // 关掉极简模式就清掉选区（富文本/卡片模式里不提供拖选）。
         if (app.floatWindowMinimal) {
           _selection = null;
           _selectionResult = FloatSelectionResult.none;
@@ -758,7 +758,7 @@ class FloatWindowPresenter {
         unawaited(coordinator.captureAndAnalyze());
       case FloatAction.multiPage:
       case FloatAction.addPage:
-        // M46：悬浮窗上的「多页识别 / 继续添加页」= 多页模式热键。到上限时**不替
+        // 悬浮窗上的「多页识别 / 继续添加页」= 多页模式热键。到上限时**不替
         // 用户上传**（那是键盘热键的语义），而是提示他点「结束并上传」。
         unawaited(coordinator.multipageCapture(autoUploadAtLimit: false));
       case FloatAction.finishMulti:
@@ -786,7 +786,7 @@ class FloatWindowPresenter {
   }
 
   // ------------------------------------------------------------------
-  // 极简模式的文本拖选 / 复制（M42）
+  // 极简模式的文本拖选 / 复制
   // ------------------------------------------------------------------
 
   /// 窗口坐标 → 内容坐标（内容坐标系 y 从 0 开始、不含滚动量）。
@@ -832,7 +832,7 @@ class FloatWindowPresenter {
     await _push();
   }
 
-  /// 底部「复制识别内容」：把**这一次识别的全部内容**直接复制走（M43 第 2 条）。
+  /// 底部「复制识别内容」：把**这一次识别的全部内容**直接复制走。
   ///
   /// 用户口径：「修改功能为复制识别内容，点击直接复制本次识别的内容」。
   /// 复制的是**完整**内容（全部选项 + 答案 + 解析 + 阅读材料，

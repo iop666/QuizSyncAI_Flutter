@@ -23,7 +23,7 @@ import '../services/system_ui_channel.dart';
 ///    表现就是状态栏一直停在错的主题色上。所以 [reapplySystemUiOverlayStyle]
 ///    除了走正常路径，还会直接经平台通道重发一次，绕过这个缓存。
 ///
-/// 3. **前两条在 Android 15+ 上都不够**（M13 用反编译拿到的证据）：本机引擎
+/// 3. **前两条在 Android 15+ 上都不够**：本机引擎
 ///    产物里的 `PlatformPlugin` 写着 `if (SDK_INT >= 35) 跳过 setStatusBarColor`
 ///    —— 平台 15 起状态栏底色由「内容自己画」决定，颜色怎么下发都没用。于是：
 ///    ① 图标明暗走自家 Kotlin 桥 [pushSystemUiStyle]（`WindowInsetsControllerCompat`，
@@ -83,7 +83,7 @@ ThemeData withSystemUiOverlay(ThemeData theme) => theme.copyWith(
 
 /// 让整棵子树按当前主题声明系统栏样式（声明式，负责按路由/页面自动切换）。
 ///
-/// **同时在顶部安全区自绘一条状态栏底色的条带**（M13）：Android 15 起平台不认
+/// **同时在顶部安全区自绘一条状态栏底色的条带**：Android 15 起平台不认
 /// 「应用指定的状态栏底色」，状态栏区域显示的就是应用自己画的内容，所以这条
 /// 条带才是底色真正跟随主题的保证；它画在最上层、且不吞触摸事件。
 /// 没有顶部 inset（窗口没铺到状态栏底下）时不画 —— 那种情况由平台/原生桥负责。
@@ -156,7 +156,7 @@ void reapplySystemUiOverlayStyle(SystemUiOverlayStyle style) {
   } catch (_) {
     // 见上：强制重发只是兜底手段。
   }
-  // 自家桥（M13）：API 35+ 上这是唯一真正改得到状态栏的路径，必须每次重发。
+  // 自家桥：API 35+ 上这是唯一真正改得到状态栏的路径，必须每次重发。
   final statusBarColor = style.statusBarColor;
   final navigationBarColor = style.systemNavigationBarColor;
   if (statusBarColor != null && navigationBarColor != null) {

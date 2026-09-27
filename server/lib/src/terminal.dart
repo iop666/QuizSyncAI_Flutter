@@ -68,7 +68,7 @@ class Terminal {
         // 每次写之前先把写指针挪到当前文件末尾：同一份 `server.log` 可能被两个实例
         // 同时写着（用户点第二次启动、旧实例还没退出时就会这样），而句柄各自的写指针
         // 是独立的 —— 不重新定位的话后写的那一方会**覆盖**对方的段落，日志变成
-        // 「同一块状态刷了几十遍」那种错乱样子（M45f 实测在用户数据目录里见到）。
+        // 「同一块状态刷了几十遍」那种错乱样子。
         handle!.setPositionSync(handle!.lengthSync());
         handle!.writeFromSync(bytes);
         handle!.flushSync();

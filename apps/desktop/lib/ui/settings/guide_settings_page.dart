@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quizsync_ui/quizsync_ui.dart';
 
-/// 使用说明（M32 用户需求 5）：Windows 应用设置的**第一项**。
+/// 使用说明：Windows 应用设置的**第一项**。
 ///
 /// 只写这个应用**真的有**的能力与设置项：先说「可以用哪几种方式把题目交给它」，
 /// 再逐项说明左侧每个设置分类是干什么的。写作口径与 README 一致 ——

@@ -14,14 +14,14 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 import '../../services/floating_ball.dart' show BallState;
 import '../../state/app_scope.dart';
 
-/// 悬浮球设置（用户反馈 11）：开关 → 大小 / 透明度 → 描边（开关 / 宽度 /
+/// 悬浮球设置：开关 → 大小 / 透明度 → 描边（开关 / 宽度 /
 /// 透明度，颜色跟随悬浮球当前状态的主色）。
 ///
 /// 交互与安卓端一致：单击 = 截一张图直接识别（多页攒页时 = 收尾识别），
 /// **左键长按 500ms 或右键**（两者完全等价）= 追加一页进入多页模式；
 /// 拖动后自动吸附左右边缘。
 ///
-/// 描边是**向外**画的一圈（用户反馈 M16 第 1 条）：颜色取状态主色并加深，
+/// 描边是**向外**画的一圈：颜色取状态主色并加深，
 /// 见 `services/ball_paint.dart`。
 class BallSettingsPage extends ConsumerStatefulWidget {
   const BallSettingsPage({super.key});

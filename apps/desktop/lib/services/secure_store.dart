@@ -74,7 +74,7 @@ class WindowsSecureStore {
       }
       final out =
           Uint8List.fromList(outBlob.ref.pbData.cast<Uint8>().asTypedList(outBlob.ref.cbData));
-      // M47：还给系统**之前**先清零（顺序不能反：LocalFree 之后这块内存已经不归我们）。
+      // 还给系统**之前**先清零（顺序不能反：LocalFree 之后这块内存已经不归我们）。
       outBlob.ref.pbData
           .cast<Uint8>()
           .asTypedList(outBlob.ref.cbData)
@@ -101,7 +101,7 @@ class WindowsSecureStore {
       }
       final out =
           Uint8List.fromList(outBlob.ref.pbData.cast<Uint8>().asTypedList(outBlob.ref.cbData));
-      // M47：把明文缓冲清干净再还给系统（同机其他进程本来就能解 secure.bin，
+      // 把明文缓冲清干净再还给系统（同机其他进程本来就能解 secure.bin，
       // 这里只是不给「顺手扫进程内存」留窗口）。
       outBlob.ref.pbData
           .cast<Uint8>()

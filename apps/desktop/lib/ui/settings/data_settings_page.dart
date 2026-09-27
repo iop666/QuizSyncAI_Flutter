@@ -11,7 +11,7 @@ import '../collection_picker_page.dart';
 import '../home_page.dart' show dataRootProvider;
 import 'settings_actions.dart';
 
-/// 数据管理（M9）：任务集合、导出、备份与日志。
+/// 数据管理：任务集合、导出、备份与日志。
 /// 原来的「任务合集」与「数据」两张卡片的内容按语义重新分组；
 /// 涉及覆盖/吊销/导出的动作仍全部带二次确认。
 class DataSettingsPage extends ConsumerStatefulWidget {

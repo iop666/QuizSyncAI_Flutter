@@ -30,7 +30,7 @@ class ServerOptions {
   final int maxImageBytes;
 
   /// 上传接口限流：每台设备每分钟最多多少次（`SPEC.md` §10 / `protocol.md` §3.2）。
-  /// ≤ 0 表示不限流（供单测批量上传用）。M47 与 Desktop 版对齐。
+  /// ≤ 0 表示不限流（供单测批量上传用）。与 Desktop 版对齐。
   final int imageUploadsPerMinute;
 
   const ServerOptions({
@@ -103,7 +103,7 @@ class QuizSyncServer {
   int _pairFailures = 0;
   int _lockedUntil = 0;
 
-  /// 上传接口的滑窗（每台设备各自一份，M47 与 Desktop 版对齐）。
+  /// 上传接口的滑窗（每台设备各自一份与 Desktop 版对齐）。
   final Map<String, List<int>> _uploadTimestamps = {};
 
   // WS 连接表：device_id → channel（同 device 新连接踢旧连接）。
@@ -248,7 +248,7 @@ class QuizSyncServer {
             authFailure = _error(401, 'unauthorized', 'token 无效');
           }
         }
-        // M47：版本协商（protocol.md 2.1）：主版本不一致 → 426。
+        // 版本协商（protocol.md 2.1）：主版本不一致 → 426。
         authFailure ??= _versionMismatch(request);
         final response = await (authFailure == null
             ? inner(request)
@@ -404,7 +404,7 @@ class QuizSyncServer {
   // ------------------------------------------------------------
 
   Future<Response> _handleImageUpload(Request request) async {
-    // M47（SPEC §10 / protocol.md 3.2）：上传接口每分钟 30 次，与 Desktop 版同一口径。
+    // SPEC §10 / protocol.md 3.2：上传接口每分钟 30 次，与 Desktop 版同一口径。
     final caller = _authDeviceId(request);
     final limited = _checkUploadRate(caller ?? '');
     if (limited != null) return limited;
@@ -419,7 +419,7 @@ class QuizSyncServer {
     }
     await for (final field in form.formData) {
       if (field.name != 'file') continue;
-      // M47：上面那道预检依赖 Content-Length —— 分块传输（chunked）时它是 null，
+      // 上面那道预检依赖 Content-Length —— 分块传输（chunked）时它是 null，
       // 于是「整块读进内存再判大小」照样能被吃爆内存。这里边收边计数，一超限
       // 立刻 413 并停止读取（与 Desktop 版 `_handleImageUpload` 一致）。
       final builder = BytesBuilder(copy: false);
@@ -529,7 +529,7 @@ class QuizSyncServer {
     }
 
     final force = body['force_reanalyze'] == true;
-    // M47（与 Desktop 版 C4 对齐）：Server 的任务链路是**串行**的（`ServerTasks`
+    // 与 Desktop 版 C4 对齐：Server 的任务链路是**串行**的（`ServerTasks`
     // 用 `_busy` 挡并发），没有队列可排队 —— 所以这里在「已经有一条在跑」时
     // 直接回 429，而不是先答应 202、再让那条任务以 `busy` 失败（手机端看到的是
     // 「排队中」然后莫名其妙失败）。
@@ -697,7 +697,7 @@ class QuizSyncServer {
     }
     var applied = 0;
     var rejected = 0;
-    // M47：op 的归属必须等于认证设备（与共享包里的内置服务端同一规则）。
+    // op 的归属必须等于认证设备（与共享包里的内置服务端同一规则）。
     final caller = _authDeviceId(request);
     for (final raw in rawOps) {
       if (raw is! Map) continue;
@@ -726,7 +726,7 @@ class QuizSyncServer {
   }
 
   /// `GET /api/v1/sync/snapshot`：全量实体的**分页**快照
-  /// （`data-model.md` 2.9：返回全量实体（分页））。M47 与 Desktop 版同一口径。
+  /// （`data-model.md` 2.9：返回全量实体（分页））。与 Desktop 版同一口径。
   ///
   /// Server 的存储是 JSON（不是库），但会话一多同样不该一次性全塞进一个响应：
   /// `limit`（默认 200，上限 1000）+ `offset`，题目只带本页涉及的会话。
@@ -901,7 +901,7 @@ class QuizSyncServer {
               if (raw is! Map) continue;
               final op = SyncOp.fromJson(Map<String, dynamic>.from(raw));
               if (op.deviceId == store.deviceId) continue;
-              // M47：同 HTTP —— 不能替**别的设备**记账。
+              // 同 HTTP —— 不能替**别的设备**记账。
               if (op.deviceId != deviceId) continue;
               store.markOpApplied(op.opId);
               if (op.lamport > maxLamport) maxLamport = op.lamport;

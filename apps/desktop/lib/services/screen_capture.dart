@@ -112,9 +112,9 @@ class ScreenCaptureService {
   /// - 也不能用 `GetForegroundWindow()`：热键在其他应用上按下时那是别的应用，
   ///   会把用户的浏览器/文档窗口藏起来。
   ///
-  /// ⚠️ 标题必须取 `kAppName`：M17 把窗口标题从 `QuizSync AI` 改成中文名
-  /// 「AI 双端搜题」时，这里留着一个 `'QuizSync AI'` 字面量，`FindWindow` 于是
-  /// 返回 0、**主窗口根本没被藏**（M31 实测：`FindWindowW(NULL,"QuizSync AI")`
+  /// ⚠️ 标题必须取 `kAppName`：窗口标题是中文名
+  /// 「AI 双端搜题」，这里若写死 `'QuizSync AI'` 字面量，`FindWindow` 会
+  /// 返回 0、**主窗口根本没被藏**（实测：`FindWindowW(NULL,"QuizSync AI")`
   /// 返回 0，`FindWindowW(NULL,"AI 双端搜题")` 返回本应用主窗口句柄）——
   /// 只要窗口可见，它自己就被拍进了发给 AI 的那张图。
   /// 现在统一走 `findAppWindow(kAppName)`，只留一个标题来源。
@@ -138,7 +138,7 @@ class ScreenCaptureService {
       }
     }
     final wasVisible = IsWindowVisible(hwnd) != 0;
-    // 藏之前先记下两件事（用户反馈 M15 第 3 条）：
+    // 藏之前先记下两件事：
     // ① 我们是不是当前的前台窗口 —— 只有是，恢复时才把焦点还回来；
     // ② 紧挨在我们**上面**的那个窗口 —— 恢复时插回它下面，层叠关系不变。
     //    只靠 `SW_SHOWNOACTIVATE` 虽然不抢焦点，但仍会把窗口提到同级最上层，

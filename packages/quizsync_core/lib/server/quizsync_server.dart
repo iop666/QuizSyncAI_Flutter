@@ -29,7 +29,7 @@ class QuizSyncServerOptions {
   /// ≤ 0 表示不限流（供单测批量上传用）。
   final int imageUploadsPerMinute;
 
-  /// 任务队列深度上限（M47）：排队中的任务达到这个数就回 429，
+  /// 任务队列深度上限：排队中的任务达到这个数就回 429，
   /// 免得主机被一个客户端的连点灌满、tasks 表无限膨胀。
   final int maxQueueDepth;
 
@@ -71,15 +71,15 @@ class QuizSyncServer {
   final QuizSyncServerOptions options;
   final int Function() now;
 
-  /// 任务状态变化的旁路回调（用户反馈 12）：桌面端据此在「手机提交的任务」
+  /// 任务状态变化的旁路回调：桌面端据此在「手机提交的任务」
   /// 开始/结束时弹到前台；不改协议、不影响广播。
   ///
   /// **只对手机提交的任务触发**。本机截屏（[notifyLocalSession]）走的是
   /// 「后台静默识别」，绝不能经过这里，否则 Windows 一按热键主窗口就自己跳出来
-  /// （用户反馈 M14 第 6 条）。
+  /// 。
   void Function(String status, String? sessionId)? onTaskUpdateHook;
 
-  /// 正在进行中的**本机**截屏任务（M14 第 6 条）。
+  /// 正在进行中的**本机**截屏任务。
   ///
   /// 手机可能在识别过程中才连上 / 断线重连（`SyncSocket` 有心跳与退避重连），
   /// 那样它会漏掉 `task_update`，界面就停在「没有任务」，用户看到的正是
@@ -88,7 +88,7 @@ class QuizSyncServer {
   /// 重连都会跳到上一次的结果页。
   _LocalTaskState? _pendingLocalTask;
 
-  /// 主机最近一次广播出去的任务状态（用户反馈 M15 第 4 条）。
+  /// 主机最近一次广播出去的任务状态。
   ///
   /// WS 是推送式的：断线期间发生的事一点痕迹都不留，所以安卓端加了 HTTP 轮询
   /// 兜底，要问「主机现在 / 刚刚在识别什么」。所有任务状态都从
@@ -114,14 +114,14 @@ class QuizSyncServer {
   ///
   /// 手机端在前台时每秒问一次 `/tasks/active`（`HostStatusPoller`），那条路径
   /// **不建 WS** —— 设置页只看 `connectedCount`（WS 连接数）的话，手机明明正在用，
-  /// 界面却一直停在「等待手机连接」（用户实测反馈 M47）。所以「在线」的判据改成
+  /// 界面却一直停在「等待手机连接」（用户实测反馈 ）。所以「在线」的判据改成
   /// 「WS 连着 **或** 最近 [kActiveDeviceWindowMs] 内有已认证请求」。
   final Map<String, int> _lastAuthedAt = {};
 
   /// 多久没动静就算不在线（手机 1 秒一轮，取 15 秒留足抖动余量）。
   static const int kActiveDeviceWindowMs = 15000;
 
-  /// 配对失败计数与锁定期落库（M47）：原来只在内存里，重启即清零 ——
+  /// 配对失败计数与锁定期落库：原来只在内存里，重启即清零 ——
   /// 攻击者只要让服务重启一次就能继续猜配对码。
   static const String _kPairFailKey = 'pair_fail_count';
   static const String _kPairLockKey = 'pair_locked_until';
@@ -173,7 +173,7 @@ class QuizSyncServer {
   String get pairingCode => _pairingCode;
   int get pairingExpiresAt => _pairingExpiresAt;
 
-  /// 当前有多少台设备正通过 WebSocket 连着（M9 连接状态用；只读，不改协议）。
+  /// 当前有多少台设备正通过 WebSocket 连着（ 连接状态用；只读，不改协议）。
   int get connectedCount => _connections.length;
 
   /// 当前在线的设备 id（连接状态页显示具体是谁连着）。
@@ -190,7 +190,7 @@ class QuizSyncServer {
   /// preferredPort 传 0 表示随机端口（测试用）。
   Future<int> start() async {
     executor.onTaskUpdate = notifyTaskUpdate;
-    // M47：把上次运行留下的配对失败计数 / 锁定期读回来（重启不再清零）。
+    // 把上次运行留下的配对失败计数 / 锁定期读回来（重启不再清零）。
     await _loadPairGuard();
     final handler = const Pipeline().addMiddleware(_middleware).addHandler(
           (req) => _router(req),
@@ -276,7 +276,7 @@ class QuizSyncServer {
             authFailure = _error(401, 'unauthorized', 'token 无效');
           }
         }
-        // M47：版本协商（protocol.md 2.1）—— 主版本不一致直接 426，免得两端
+        // 版本协商（protocol.md 2.1）—— 主版本不一致直接 426，免得两端
         // 用不兼容的载荷互相写坏数据。
         authFailure ??= _versionMismatch(request);
         final response = await (authFailure == null
@@ -389,7 +389,7 @@ class QuizSyncServer {
       'protocol_version': options.protocolVersion,
       'app_version': options.appVersion,
       'ai_configured': config != null && config.apiKey.isNotEmpty && config.model.isNotEmpty,
-      // 用户需求 12：安卓端识别前必须先确认主机已选中合集。
+      // 安卓端识别前必须先确认主机已选中合集。
       'active_collection_id': collection?.collectionId,
       'active_collection_name': collection?.name,
       'capabilities': ['analyze', 'sync', 'image_fetch', 'collections', 'multipage'],
@@ -422,7 +422,7 @@ class QuizSyncServer {
     });
   }
 
-  /// 安卓端也能切换主机当前合集（用户需求 12 的友好补充：手机上可直接选）。
+  /// 安卓端也能切换主机当前合集。
   FutureOr<Response> _handleCollectionSelect(Request request, String id) async {
     if (await repo.getCollection(id) == null) {
       return _error(404, 'not_found', '合集不存在');
@@ -486,7 +486,7 @@ class QuizSyncServer {
       ));
       _pairFailures = 0;
       await _savePairGuard();
-      // M47（protocol.md 2.2）：同 device_id 重新配对 = **409 already_paired**，
+      // 按 protocol.md 2.2：同 device_id 重新配对 = **409 already_paired**，
       // body 里照样给新 token（旧的已作废），客户端按成功处理即可。
       return _json({
         'token': token,
@@ -508,7 +508,7 @@ class QuizSyncServer {
   }
 
   FutureOr<Response> _handleImageUpload(Request request) async {
-    // M47（SPEC §10 / protocol.md 3.2）：上传接口每分钟 30 次。
+    // SPEC §10 / protocol.md 3.2：上传接口每分钟 30 次。
     final caller = await _authDeviceId(request);
     final limited = _checkUploadRate(caller ?? '');
     if (limited != null) return limited;
@@ -524,7 +524,7 @@ class QuizSyncServer {
     }
     await for (final field in form.formData) {
       if (field.name != 'file') continue;
-      // M47：上面那道预检依赖 Content-Length —— 分块传输（chunked）时它是 null，
+      // 上面那道预检依赖 Content-Length —— 分块传输（chunked）时它是 null，
       // 于是「整块读进内存再判大小」照样能被吃爆内存。这里边收边计数，一超限
       // 立刻 413 并停止读取。
       final builder = BytesBuilder(copy: false);
@@ -551,7 +551,7 @@ class QuizSyncServer {
       await imageStore.write(hash, bytes);
       final uploader = caller ?? repo.deviceId;
       final localPath = imageStore.pathFor(hash) ?? existed?.localPath;
-      // 用户反馈 M15 第 2 条：这里原来在**写完文件之后**又查了一次库，
+      // 这里原来在**写完文件之后**又查了一次库，
       // 而写文件并不建 `images` 行，查到的 localPath 必然是 null —— 于是手机
       // 传上来的图片在 Windows 端**永远没有缩略图**（主界面显示占位图标），
       // 结果页与「重新分析」也找不到原图。改成直接用刚落盘的路径。
@@ -598,7 +598,7 @@ class QuizSyncServer {
     final imageHash = body['image_hash']?.toString();
     final sourceDevice = body['source_device']?.toString();
 
-    // 多页（用户需求 4）：image_hashes 优先；否则退回单页 image_hash。
+    // 多页：image_hashes 优先；否则退回单页 image_hash。
     final rawHashes = body['image_hashes'];
     var hashes = <String>[];
     if (rawHashes is List) {
@@ -623,7 +623,7 @@ class QuizSyncServer {
       }
     }
 
-    // 用户需求 8/12：任务必须落在某个合集里。手机端没选合集时不静默塞进
+    // 任务必须落在某个合集里。手机端没选合集时不静默塞进
     // 「未分类」——那会让历史记录分组错乱，直接 409 让客户端提示用户。
     final requestedCollection = body['collection_id']?.toString();
     final active = await activeCollection();
@@ -637,7 +637,7 @@ class QuizSyncServer {
       return _error(409, 'no_active_collection', '所选合集不存在，请重新选择');
     }
 
-    // M47：任务队列深度上限。队列是串行执行的（并发恒 1），没有上限时一个
+    // 任务队列深度上限。队列是串行执行的（并发恒 1），没有上限时一个
     // 客户端连点就能让 tasks 表无限膨胀、主机端一直忙着跑旧任务。
     final queuedCount = (await (repo.db.select(repo.db.tasks)
               ..where((t) => t.status.equals('queued')))
@@ -677,8 +677,7 @@ class QuizSyncServer {
   }
 
   /// `GET /api/v1/tasks/active`：安卓端每秒一次的**只读**状态探测
-  /// （用户反馈 M15 第 4 条：「又没有方法让他一直刷新，比如安卓端 1s 获取
-  /// 一次状态」）。
+  /// （WS 不可用时安卓端也能持续刷新状态）。
   ///
   /// 为什么不能复用别的端点：`/api/v1/info` 只有主机自述，`/api/v1/tasks/<id>`
   /// 需要客户端先知道 task_id（而本机截屏任务的 task_id 就是 session_id，且
@@ -717,7 +716,7 @@ class QuizSyncServer {
       'message': message,
       'active_collection_id': collection?.collectionId,
       'active_collection_name': collection?.name,
-      // 主机**当前的活跃合集列表**（M18 第 4 条）。安卓端把这份列表直接镜像
+      // 主机**当前的活跃合集列表**。安卓端把这份列表直接镜像
       // 到本地库（`CoreRepository.mirrorCollections`，只增改不删），于是
       // 「Windows 上新建/改名合集 → 手机历史里那个分组跟着出现」不再依赖
       // `ops_lamport` 这类间接信号：列表本身就是「想要的结果」。
@@ -725,7 +724,7 @@ class QuizSyncServer {
       'collections': (await repo.listCollections())
           .map((c) => c.toJson())
           .toList(),
-      // 主机本地 ops 的水位（M17 第 5 条）：安卓端每秒轮询时顺带看一眼，
+      // 主机本地 ops 的水位：安卓端每秒轮询时顺带看一眼，
       // 发现涨了就**只拉一次** ops（pull-only），于是 Windows 上改题目等
       // 本地修改在 App 前台时 1 秒内就会落到手机上。纯加法字段，老客户端忽略。
       'ops_lamport': await repo.db.maxLamport(),
@@ -782,7 +781,7 @@ class QuizSyncServer {
     return _json({'status': 'queued'});
   }
 
-  /// 「重新生成」（用户需求 7）：安卓端在结果页一键重跑本会话。
+  /// 「重新生成」：安卓端在结果页一键重跑本会话。
   FutureOr<Response> _handleSessionReanalyze(
       Request request, String sessionId) async {
     final session = await repo.getSession(sessionId, includeDeleted: true);
@@ -811,7 +810,7 @@ class QuizSyncServer {
     }
     var applied = 0;
     var rejected = 0;
-    // M47：op 的**归属**必须等于认证设备。原来只挡「冒充主机」，于是任何已配对
+    // op 的**归属**必须等于认证设备。原来只挡「冒充主机」，于是任何已配对
     // 设备都能拿别人的 device_id 配上任意大的 lamport 改写对方的数据
     // （LWW 下高 lamport 必赢），并且会被主机当成真事再同步给所有对端。
     final caller = await _authDeviceId(request);
@@ -875,7 +874,7 @@ class QuizSyncServer {
   /// `GET /api/v1/sync/snapshot`：全量实体的**分页**快照
   /// （`data-model.md` 2.9：返回全量实体（分页））。
   ///
-  /// M47：原来一次性 `listSessions(limit: 1000000)` 把整个库读进内存再拼成一个
+  /// 原来一次性 `listSessions(limit: 1000000)` 把整个库读进内存再拼成一个
   /// JSON 字符串 —— 历史一多就是几百 MB。现在按会话分页：`limit`（默认 200，
   /// 上限 1000）+ `offset`；题目 / 页序只带本页涉及的会话，图片只带元数据。
   /// 合集与设备是两张小表，照旧全量（客户端要靠它们补基线）。
@@ -982,7 +981,7 @@ class QuizSyncServer {
     }
     _connections[deviceId] = channel;
 
-    // hello（含当前合集：用户需求 12，安卓端据此判断能否发起识别）。
+    // hello（含当前合集，安卓端据此判断能否发起识别）。
     Future(() async {
       final c = await activeCollection();
       _send(channel, {
@@ -994,7 +993,7 @@ class QuizSyncServer {
         'active_collection_id': c?.collectionId,
         'active_collection_name': c?.name,
       });
-      // M14 第 6 条：手机正好在主机识别过程中连上来（首次连 / 断线重连）时，
+      // 手机正好在主机识别过程中连上来（首次连 / 断线重连）时，
       // 把进行中的本机任务补发一次，否则它会一直停在「没有任务」——
       // 用户看到的就是「Windows 按了热键，安卓端一点反应没有」。
       final pending = _pendingLocalTask;
@@ -1111,7 +1110,7 @@ class QuizSyncServer {
   /// [imageCount] 是手机端「N 张图片识别中」要显示的页数；传 0 时由会话页序补。
   void notifyTaskUpdate(String taskId, String status, String? sessionId,
       {int imageCount = 0}) {
-    // 用户反馈 12：桌面端要能区分「本机截屏」与「手机提交」的任务——
+    // 桌面端要能区分「本机截屏」与「手机提交」的任务——
     // 手机发起时要弹到前台显示识别界面，本机截屏时保持后台静默。
     onTaskUpdateHook?.call(status, sessionId);
     unawaited(_emitTaskUpdate(taskId, status, sessionId, imageCount));
@@ -1119,14 +1118,13 @@ class QuizSyncServer {
 
   /// 桌面端**本地**截屏（走 AnalysisWorkflow，不经服务端任务队列）的状态广播。
   ///
-  /// 修（用户反馈 2）：手机端只会在「自己提交的任务」里看到进度，主机自己截屏
+  /// 修：手机端只会在「自己提交的任务」里看到进度，主机自己截屏
   /// 时手机端什么都不知道 → 「已连接却看不到新记录 / 看不到几张图识别中」。
   /// 本地任务的 task_id 就用 session_id（手机端只把它当刷新信号）。
   ///
-  /// 修（用户反馈 M14 第 6 条）：本机截屏必须**保持后台静默** —— 不加这一条时
+  /// 修：本机截屏必须**保持后台静默** —— 不加这一条时
   /// 它会经过 [notifyTaskUpdate] 从而触发 `onTaskUpdateHook`，让 Windows 主窗口
-  /// 在按下识别热键的瞬间自己弹到前台并抢焦点（用户原话：「windows端识别完
-  /// windows端会跳出来」）。所以这里只广播，不走那个钩子；
+  /// 在按下识别热键的瞬间自己弹到前台并抢焦点。所以这里只广播，不走那个钩子；
   /// 同时把「进行中」的状态记下来，等手机连上来时补发（见 [_pendingLocalTask]）。
   void notifyLocalSession(String sessionId, String status,
       {int imageCount = 0}) {
@@ -1142,7 +1140,7 @@ class QuizSyncServer {
     if (count <= 0 && sessionId != null && sessionId.isNotEmpty) {
       count = (await repo.imageHashesOf(sessionId)).length;
     }
-    // 用户反馈 M15 第 4 条：这里是一切任务状态的唯一广播出口，顺手记一份供
+    // 这里是一切任务状态的唯一广播出口，顺手记一份供
     // `GET /api/v1/tasks/active` 只读回放（安卓端的 HTTP 轮询兜底靠它）。
     _lastTaskState = _TaskStateSnapshot(taskId, sessionId, status, count, now());
     _broadcast({
@@ -1179,7 +1177,7 @@ extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
 
-/// 进行中的本机截屏任务状态（M14 第 6 条）：手机连上来时用它补发一次。
+/// 进行中的本机截屏任务状态：手机连上来时用它补发一次。
 class _LocalTaskState {
   final String sessionId;
   final String status;
@@ -1188,7 +1186,7 @@ class _LocalTaskState {
   const _LocalTaskState(this.sessionId, this.status, this.imageCount);
 }
 
-/// 主机最近一次广播出去的任务状态（M15 第 4 条）：HTTP 轮询端点的回放依据。
+/// 主机最近一次广播出去的任务状态：HTTP 轮询端点的回放依据。
 ///
 /// [sessionId] 可以为 null（任务还没建会话），[at] 是记下这次状态的时间，
 /// 客户端用它区分「同一个会话又出了一次新结果」。

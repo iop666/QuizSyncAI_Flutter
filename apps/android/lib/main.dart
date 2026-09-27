@@ -14,10 +14,10 @@ import 'ui/system_ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 沉浸式系统栏（用户需求 4）：内容铺到状态栏/导航栏底下，再由
+  // 沉浸式系统栏：内容铺到状态栏/导航栏底下，再由
   // [ThemedSystemUi] 按主题给出「透明底 + 图标明暗」样式。
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  // M24：配对 token 的存储换成 AndroidX Security 的 EncryptedSharedPreferences
+  // 配对 token 的存储换成 AndroidX Security 的 EncryptedSharedPreferences
   // （9.x 的默认值是 false，走旧的「Keystore 包裹 AES + 普通 prefs」实现）。
   // 两种实现落在**不同的 prefs 文件**里，因此升级后旧 token 读不出来 = 需要重新配对一次；
   // 本轮同时换了 applicationId（等于全新安装），本来就不存在迁移数据。
@@ -129,7 +129,7 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
       title: kAppName,
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
-      // 系统栏样式随主题（用户需求 4）：AppBar 也换成同一份，
+      // 系统栏样式随主题：AppBar 也换成同一份，
       // 否则 AppBar 自带的黑色导航栏会盖掉透明效果。
       theme: withSystemUiOverlay(QuizSyncTheme.build(
           brightness: Brightness.light, accent: s.app.accent)),

@@ -1,4 +1,4 @@
-/// 手机（安卓）发起的一次识别任务的状态信号（M44 第 5 条）。
+/// 手机（安卓）发起的一次识别任务的状态信号。
 ///
 /// 为什么单独放一个文件：它要被三处共用 —— 服务端回调（`main.dart`）、全局
 /// `ValueNotifier`（`state/app_scope.dart`）、悬浮窗外壳（`float_window_presenter.dart`）。

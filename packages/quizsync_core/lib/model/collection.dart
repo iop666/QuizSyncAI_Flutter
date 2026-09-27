@@ -1,4 +1,4 @@
-/// 任务合集（用户需求 8/9）：一次任务的全部识别记录归入一个合集。
+/// 任务合集：一次任务的全部识别记录归入一个合集。
 /// 字段与 `data-model.md` 的 `collections` 表一一对应。
 class Collection {
   final String collectionId;

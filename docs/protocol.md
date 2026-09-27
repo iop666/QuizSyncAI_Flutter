@@ -99,9 +99,9 @@ Authorization: Bearer <token>
 | POST | `/api/v1/tasks` | 创建分析任务（支持多页 + 合集归属） |
 | GET | `/api/v1/tasks/{task_id}` | 查询任务状态与结果 |
 | POST | `/api/v1/tasks/{task_id}/retry` | 重试失败任务 |
-| POST | `/api/v1/sessions/{session_id}/reanalyze` | 「重新生成」：按既有页序重跑一次（用户需求 7） |
-| GET | `/api/v1/collections` | 合集列表 + 当前选中项（用户需求 8） |
-| POST | `/api/v1/collections/{id}/select` | 切换主机当前合集（用户需求 12） |
+| POST | `/api/v1/sessions/{session_id}/reanalyze` | 「重新生成」：按既有页序重跑一次 |
+| GET | `/api/v1/collections` | 合集列表 + 当前选中项 |
+| POST | `/api/v1/collections/{id}/select` | 切换主机当前合集 |
 | POST | `/api/v1/sync/ops` | 推送本地操作日志 |
 | GET | `/api/v1/sync/ops?since_lamport=&from_device=` | 拉取对端操作日志 |
 | GET | `/api/v1/sync/snapshot` | 新设备 bootstrap 快照 |
@@ -122,7 +122,7 @@ Authorization: Bearer <token>
 ```
 
 `ai_configured` 为 false 时 Android 应提示「主机尚未配置 AI」，而不是让任务静默失败。
-`active_collection_id` 为 null 时 Android **不得**发起识别，应提示「请先在电脑上选择任务合集」（用户需求 12）。
+`active_collection_id` 为 null 时 Android **不得**发起识别，应提示「请先在电脑上选择任务合集」。
 
 ### 3.2 `POST /api/v1/images`
 
@@ -158,14 +158,14 @@ Authorization: Bearer <token>
 ```
 
 - `task_id` **由发起端生成**，服务端以它做幂等：重复提交同一个 `task_id` 直接返回既有状态，不重复分析。
-- `image_hashes` 是**多页页序**（用户需求 4），1..6 张（服务端硬上限 `kHardMaxPagesPerTask` = **6**，`too_many_pages`；用户反馈 9 把原来的 12 收紧到 6）。省略时退回单页 `image_hash`；每张都必须已经 `POST /images` 上传过。
-- **合集必填**（用户需求 8/12）：`collection_id` 与主机当前选中的合集都为空，或指向不存在的合集 → `409 no_active_collection`。Android 收到该码应提示「请先在电脑上选择任务合集」。
+- `image_hashes` 是**多页页序**，1..6 张（服务端硬上限 `kHardMaxPagesPerTask` = **6**，超限报 `too_many_pages`）。省略时退回单页 `image_hash`；每张都必须已经 `POST /images` 上传过。
+- **合集必填**：`collection_id` 与主机当前选中的合集都为空，或指向不存在的合集 → `409 no_active_collection`。Android 收到该码应提示「请先在电脑上选择任务合集」。
 - 若 `image_hash` 已有 `done` 会话、**页序完全一致**、且 `force_reanalyze == false` → 立即返回 `{"status":"done",...,"cached":true}`。
 - `status` 取值：`queued` | `analyzing` | `done` | `failed` | `cancelled`。
 
 ### 3.3.1 `POST /api/v1/sessions/{session_id}/reanalyze`
 
-用户需求 7 的「重新生成」。服务端按该会话的 `session_images` 页序起一个**新任务**（`force_reanalyze = true`，不复用缓存），响应与 3.3 一致（`202`）。
+「重新生成」语义。服务端按该会话的 `session_images` 页序起一个**新任务**（`force_reanalyze = true`，不复用缓存），响应与 3.3 一致（`202`）。
 
 ### 3.3.2 `GET /api/v1/collections` / `POST /api/v1/collections/{id}/select`
 
@@ -188,7 +188,7 @@ Authorization: Bearer <token>
 
 `status == "failed"` 时 `error_code` 取值：`ai_timeout` | `ai_auth` | `ai_rate_limited` | `ai_bad_response` | `ai_quota_exceeded` | `no_question_found` | `internal`。端侧按 `SPEC.md` 第 8 节给出对应文案。
 
-### 3.4.1 `GET /api/v1/tasks/active`（用户反馈 M15 第 4 条）
+### 3.4.1 `GET /api/v1/tasks/active`
 
 **只读**：主机「现在正在识别什么」的快照，供安卓端**轮询兜底**（默认 1 秒一次）使用 ——
 WS 推送不可靠时，手机靠它也能显示「N 张图片识别中…」并在出结果后自动进结果页。
@@ -203,11 +203,11 @@ WS 推送不可靠时，手机靠它也能显示「N 张图片识别中…」并
   "message": null,                     // failed 时的原因
   "active_collection_id": "...",       // WS 全断时手机据此把状态行恢复成「已连接 · 合集名」
   "active_collection_name": "...",
-  "collections": [                     // M18 第 4 条：主机**当前活跃合集列表**（只增改不删）
+  "collections": [                     // 主机**当前活跃合集列表**（只增改不删）
     { "collection_id": "...", "name": "期末复习", "created_at": 1, "updated_at": 2,
       "updated_by": "...", "lamport": 7 }
   ],
-  "ops_lamport": 812,                  // M17 第 5 条：主机本地 ops 水位（0 = 老版本没上报）
+  "ops_lamport": 812,                  // 主机本地 ops 水位（0 = 老版本没上报）
   "session": { /* 可选：仅 status=done 时带，载荷与 WS task_result 的 session 同构 */ }
 }
 ```
@@ -216,26 +216,26 @@ WS 推送不可靠时，手机靠它也能显示「N 张图片识别中…」并
 - `status=done` 时额外带 `session`（含 questions 与 `image_hashes`）——本机截屏任务**不经任务队列**，
   数据库里没有对应的 `tasks` 行，客户端无法用 `GET /api/v1/tasks/{task_id}` 取回结果，所以结果直接挂在这里。
 - 该状态是**内存态**：主机重启后回到 `idle`，不补发历史结果（与 WS 只补发「进行中」任务一致）。
-- `collections` = 主机**未删除**的合集列表（与 `GET /api/v1/collections` 的条目同构，**M18 第 4 条**）。
+- `collections` = 主机**未删除**的合集列表（与 `GET /api/v1/collections` 的条目同构）。
   客户端把这份列表**镜像**进本地库（`CoreRepository.mirrorCollections`：只增改、不删，本机已删除的合集
   不会被复活）—— 这是「想要的结果」本身，所以**不依赖** `ops_lamport` 这类间接触发信号：
-  用户反馈的「安卓端识别不到 windows 端的分类」（主机新建的合集在手机本地没有那一行，主机识别的
+  此前「安卓端识别不到 Windows 端的分类」的问题（主机新建的合集在手机本地没有那一行，主机识别的
   记录在手机历史里全被算进「未分类」）由此消除。空数组 = 老主机没上报（客户端不动作）。
   纯加法字段，老客户端忽略。
-- `ops_lamport` = 主机 `sync_ops` 的最大 lamport（**M17 第 5 条**）。客户端发现它比上次大就做一次
+- `ops_lamport` = 主机 `sync_ops` 的最大 lamport。客户端发现它比上次大就做一次
   **只拉不推**的同步（`GET /api/v1/sync/ops` + 本地 LWW 落地），于是 Windows 上「改题目」这类本地改动，
   手机在前台时 **1 秒内**就能跟上。第一次看到只建立基线（不拉），避免每次开 App 白拉一次。
   纯加法字段，老客户端忽略。
-- **合集删除的方向性（M18 第 4 条，用户明确要求修改 M17 的第 5 条）**：主机删除合集时
+- **合集删除的方向性**：主机删除合集时
   （合集从 `collections` 里消失、并生成一条 delete op），安卓端**不跟随删除** ——
   `CoreRepository(applyRemoteCollectionDeletes: false)`：那条 op 照常入库、时钟照常 observe
   （拉取游标不会卡），只是不回写 `deleted_at`；手机本地那个分组保留。反方向（手机上主动删合集）
   照常软删除并生成 op 同步给主机。桌面端 `applyRemoteCollectionDeletes` 默认 `true`，两端一致的
   语义不变，因此 `SyncEngine` / `applyRemoteOp` 的契约没有被改。
 - 客户端约定：**第一次**探测就拿到 `done/failed` 时只当基线、不触发自动进结果页（否则每次开 App 都会跳进上一轮结果）；
-  已投递过的结果不再重复推（M17 第 4 条修正：判定「这条结果**已经在界面上**」而不是「本地库里已有」——
+  已投递过的结果不再重复推（判据：**这条结果已经在界面上**，而不是「本地库里已有」——
   主机同图复用会复用 `session_id`，按本地库判断会把结果静默丢掉）。
-- 客户端约定（M17 第 4 条）：轮询次数多了以后，「主机上报的指纹没变」不等于「界面已经显示对了」；
+- 客户端约定：轮询次数多了以后，「主机上报的指纹没变」不等于「界面已经显示对了」；
   界面停在**别的**任务上时要补发一次，界面为空（用户点过「忽略」）则不补发。
 
 ### 3.5 错误响应统一格式
@@ -269,15 +269,15 @@ X-QS-Client-Version: 1.0.0
 { "type": "task_update",  "task_id": "...", "status": "analyzing", "session_id": "...", "image_count": 2 }
 { "type": "task_result",  "task_id": "...", "session": { /* 完整会话 + image_hashes/image_count + questions */ } }
 { "type": "task_failed",  "task_id": "...", "error_code": "ai_timeout", "message": "..." }
-{ "type": "collection_changed", "collection_id": "...", "collection_name": "期末复习" }  // 用户需求 12
+{ "type": "collection_changed", "collection_id": "...", "collection_name": "期末复习" }
 { "type": "ops",          "ops": [ /* sync_ops 数组 */ ] }
 { "type": "device_revoked","device_id": "..." }   // 收到后清 token 并断开
 { "type": "ping",         "ts": 1757980000000 }
 ```
 
-`task_result.session` 里额外带 `image_hashes`（页序）与 `image_count`，安卓端据此显示「N 张图片识别中…」（用户需求 7）。
+`task_result.session` 里额外带 `image_hashes`（页序）与 `image_count`，安卓端据此显示「N 张图片识别中…」。
 
-`task_update` 的 `image_count` 是这次识别的页数（用户反馈 2）：**主机自己截屏**（不经 `/tasks` 队列）
+`task_update` 的 `image_count` 是这次识别的页数：**主机自己截屏**（不经 `/tasks` 队列）
 也会广播 `task_update` / `task_result`，字段与手机端提交的任务完全一致，`task_id` 就等于 `session_id`。
 安卓端必须优先用消息里的 `image_count`，本地库查不到这群图片时（主机起的任务）也能显示「N 张图片识别中…」。
 `status=done` 但会话已被删除（同图复用）时服务端只发状态、不发 `task_result`。
@@ -314,7 +314,7 @@ X-QS-Client-Version: 1.0.0
 
 ---
 
-## 6. 环形验证（M4 的验收基础）
+## 6. 环形验证（ 的验收基础）
 
 `packages/quizsync_core/test/integration/loopback_test.dart` 必须在无设备、无网络外联的情况下跑通：
 
@@ -330,4 +330,4 @@ X-QS-Client-Version: 1.0.0
 9. 吊销设备 → 再请求 → 断言 401 revoked
 ```
 
-这个测试是「安卓虽不能运行但协议仍然被验证」的关键保障，M4 必须全绿。
+这个测试是「安卓虽不能运行但协议仍然被验证」的关键保障必须全绿。

@@ -5,10 +5,10 @@ enum SyncEntity {
   image('image'),
   device('device'),
 
-  /// 任务合集（用户需求 8）。
+  /// 任务合集。
   collection('collection'),
 
-  /// 会话的页图片（用户需求 4）。
+  /// 会话的页图片。
   sessionImage('session_image'),
   snapshot('snapshot');
 

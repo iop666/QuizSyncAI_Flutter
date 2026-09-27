@@ -4,25 +4,25 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 import '../../services/shell_open.dart';
 import '../../state/app_info.dart';
 
-/// 关于（M9 新增；用户反馈 4/6 修订）：版本、技术栈、**字体与许可**、开源许可。
+/// 关于：版本、技术栈、**字体与许可**、开源许可。
 ///
 /// 只显示项目里真实存在的信息：应用名与版本取自 `state/app_info.dart`
 /// （与 pubspec / 打包脚本同一个号），技术栈取自 AGENTS.md 实测结论，
 /// 开源许可走 Flutter 自带的 LicenseRegistry。
 ///
-/// M17 第 3 条：**补上项目地址**（用户明确要求标 GitHub）。早期这里写着
+/// **补上项目地址**。早期这里写着
 /// 「本项目没有远端仓库，所以不摆 GitHub 链接」，现在仓库已经有了：
 /// `https://github.com/iop666/QuizSyncAI`。
 ///
-/// M46 第 3 条：独立的「赞助」页整页删除，赞助支持作为**最后一组**放在这里
-/// （用户要求「在设置关于的最下面加入赞助支持模块，填上我的爱发电地址」）。
-/// M46 第 7 条：这一页不再写「构建脚本 / 每一轮改动」这类构建过程介绍。
+/// 独立的「赞助」页整页删除，赞助支持作为**最后一组**放在这里
+/// 。
+/// 这一页不再写「构建脚本 / 每一轮改动」这类构建过程介绍。
 class AboutSettingsPage extends StatelessWidget {
   const AboutSettingsPage({super.key});
 
-  /// MiSans 官方 FAQ（许可说明，用户反馈 1 明确要求遵守）。
+  /// MiSans 官方 FAQ（许可说明明确要求遵守）。
   ///
-  /// 用户反馈 12：地址就是 `https://hyperos.mi.com/font/faq`，
+  /// 地址就是 `https://hyperos.mi.com/font/faq`，
   /// **末尾不要多打 `/`**（原来写成了 `.../faq/`）。
   static const misansFaqUrl = 'https://hyperos.mi.com/font/faq';
 
@@ -102,7 +102,7 @@ class AboutSettingsPage extends StatelessWidget {
             ),
           ],
         ),
-        // 用户反馈 6：关于页必须声明**使用的字体与协议**。
+        // 关于页必须声明**使用的字体与协议**。
         SettingsGroup(
           title: '字体与许可',
           icon: Icons.text_fields,
@@ -154,7 +154,7 @@ class AboutSettingsPage extends StatelessWidget {
         const SettingsNote(
           text: '当前版本不带自动更新：升级直接安装新版安装包即可，卸载不会删除你的数据。',
         ),
-        // M46 第 3 条（用户要求）：赞助支持放在**本页最下面**（所以上面那条说明
+        // 赞助支持放在**本页最下面**（所以上面那条说明
         // 要排在它前面，不能让赞助模块后面再挂一句话）。
         SettingsGroup(
           title: '赞助支持',
@@ -182,7 +182,7 @@ class AboutSettingsPage extends StatelessWidget {
   }
 }
 
-/// 应用标识（用户反馈 4）：这里必须是**应用程序图标**（任务栏/窗口/安装包用的
+/// 应用标识：这里必须是**应用程序图标**（任务栏/窗口/安装包用的
 /// 那一枚 `icon/QuizSync_AI.png`），不是托盘状态栏图标。
 ///
 /// 图片资源由 `tool/make_icons.dart` 从 `icon/QuizSync_AI.png` 生成

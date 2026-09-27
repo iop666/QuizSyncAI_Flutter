@@ -6,7 +6,7 @@ import '../services/host_status_poller.dart';
 import '../services/live_updates.dart' show taskSignature;
 import 'app_state.dart';
 
-/// Android 端状态注入（用户需求 6/7/8/12）。
+/// Android 端状态注入。
 ///
 /// main 用真实实例 override；widget 测试用内存库 + 假网关 override，
 /// 于是在没有设备也没有模拟器的机器上也能跑完整的界面分支。
@@ -43,11 +43,11 @@ final pairingClientFactoryProvider =
 /// 宿主监听到变更后 +1，依赖设置的页面 watch 它即可重建。
 final settingsRevisionProvider = StateProvider<int>((ref) => 0);
 
-/// 是否建立 WS 长连接（用户需求 7 的自动刷新靠它）。
+/// 是否建立 WS 长连接。
 /// widget 测试把它 override 成 false：测试里不需要真的去连主机。
 final liveSyncEnabledProvider = Provider<bool>((ref) => true);
 
-/// 是否开启主机状态轮询兜底（用户反馈 M15 第 4 条）。
+/// 是否开启主机状态轮询兜底。
 ///
 /// 与 [liveSyncEnabledProvider] 同理，是给 widget 测试留的缝：测试里既没有
 /// 真主机、也没必要每秒去连一次，需要覆盖轮询的用例自己把它打开。
@@ -182,7 +182,7 @@ class ActiveTask {
   final int imageCount;
   final String? message;
 
-  /// 上一轮已经完成、**仍留在页面上**的结果（用户需求 3 的「下一轮悬浮窗」）。
+  /// 上一轮已经完成、**仍留在页面上**的结果。
   ///
   /// 新识别开始时把上一轮的 sessionId 挪到这里而不是直接清空：页面就在最上方
   /// 加一条悬浮窗显示新一轮进度，下面的旧结果保持可见；新一轮出结果时才换掉。
@@ -192,11 +192,11 @@ class ActiveTask {
   /// 页面消费一次（[ActiveTaskNotifier.consumeAutoOpen]）后清掉，保证只跳一次。
   final bool autoOpenResult;
 
-  /// 这一轮是不是**主机（Windows）自己发起**的识别（用户反馈 M16 第 3 条）。
+  /// 这一轮是不是**主机（Windows）自己发起**的识别。
   ///
   /// 用来决定「结果页上方那条悬浮窗要不要出现」：电脑在自己截屏识别时，
   /// 手机即使已经停在某次结果页上也要看得见进度（并在完成后跳过去）；
-  /// 而本机（悬浮球 / 相册）识别一律静默（用户需求 3），不能因为主机把
+  /// 而本机（悬浮球 / 相册）识别一律静默，不能因为主机把
   /// 同一条任务也广播回来就当成「电脑在识别」。
   final bool hostInitiated;
 
@@ -221,11 +221,11 @@ class ActiveTask {
 
   bool get finished => started && status == TaskState.done;
 
-  /// 正在识别、同时页面上还留着上一轮的结果 → 上方显示悬浮窗（用户需求 3）。
+  /// 正在识别、同时页面上还留着上一轮的结果 → 上方显示悬浮窗。
   bool get showsPreviousResult =>
       running && (shownSessionId ?? '').isNotEmpty;
 
-  /// 新一轮完成：悬浮窗短暂显示「识别完成」，随后自动进入结果页（用户需求 3）。
+  /// 新一轮完成：悬浮窗短暂显示「识别完成」，随后自动进入结果页。
   bool get completesIntoBanner =>
       finished && autoOpenResult && (shownSessionId ?? '').isNotEmpty;
 
@@ -316,7 +316,7 @@ class ActiveTaskNotifier extends Notifier<ActiveTask> {
     );
   }
 
-  /// 完成。`autoOpen: true` 表示这是**主机**发起的识别（用户需求 3）：
+  /// 完成。`autoOpen: true` 表示这是**主机**发起的识别：
   /// 页面会自动进入本次结果页；本机识别（默认）保持静默，只更新当前任务页。
   void done({String? sessionId, bool autoOpen = false}) {
     state = ActiveTask(
@@ -340,7 +340,7 @@ class ActiveTaskNotifier extends Notifier<ActiveTask> {
   void clear() => state = const ActiveTask();
 }
 
-/// 界面当前展示的任务签名（M17 第 4 条）：与主机侧同一拼法（见 [taskSignature]）。
+/// 界面当前展示的任务签名：与主机侧同一拼法（见 [taskSignature]）。
 ///
 /// 轮询器拿它和主机上报的签名对比：**界面停在别的任务上**就补发一次通知，
 /// 否则「通知丢过一次」之后页面会永远停在旧内容上（用户第二次反馈
@@ -352,9 +352,9 @@ String activeTaskSignature(ActiveTask task) => task.started
 final activeTaskProvider =
     NotifierProvider<ActiveTaskNotifier, ActiveTask>(ActiveTaskNotifier.new);
 
-/// 结果页上方那条「电脑正在识别中」悬浮窗要不要出现（用户反馈 M16 第 3 条）。
+/// 结果页上方那条「电脑正在识别中」悬浮窗要不要出现。
 ///
-/// 用户原话：**「安卓端已经进入识别结果后，Windows 端识别时安卓端不显示」**。
+/// **「安卓端已经进入识别结果后，Windows 端识别时安卓端不显示」**。
 /// 抽屉里的「当前任务」页本来就有这条悬浮窗，但它是被压在结果页**下面**的
 /// （`IndexedStack`），用户停在结果页上时什么都看不到。所以结果页自己也要显示
 /// ——条件与「当前任务」页一致：机器发起的识别、而且不是**页面上这次**结果
@@ -365,7 +365,7 @@ bool showsHostProgress(ActiveTask task, String currentSessionId) {
   return sid == null || sid.isEmpty || sid != currentSessionId;
 }
 
-/// 新一轮刚出结果、马上要跳到它（用户反馈 M16 第 3 条）：先显示「识别完成」。
+/// 新一轮刚出结果、马上要跳到它：先显示「识别完成」。
 ///
 /// 真正 push 新结果页的是「当前任务」页（它一直挂在 `IndexedStack` 里、
 /// `autoOpenResult` 一跳一次 —— 单一出口，不会两个页面各推一个），这里只负责
@@ -451,7 +451,7 @@ class CollectionGroup {
   bool get isUnclassified => collectionId == null;
 }
 
-/// 历史 tab 顶层的合集分组（用户需求 8）。
+/// 历史 tab 顶层的合集分组。
 final collectionGroupsProvider =
     FutureProvider<List<CollectionGroup>>((ref) async {
   final app = ref.watch(androidAppProvider);

@@ -2,7 +2,7 @@ import 'package:drift/drift.dart' show Value, Variable;
 
 import 'package:quizsync_core/quizsync_core.dart';
 
-/// 同步引擎（data-model.md 2.5 / 2.6 / 2.7，M6 任务 1–3）：
+/// 同步引擎（data-model.md 2.5 / 2.6 / 2.7–3）：
 /// - 推送：本地 `lamport > peer_state.sent_lamport` 的 op 推给对端，成功后更新水位线；
 /// - 拉取：`since_lamport`（已 ack 水位）+ `from_device` 分页拉（每页 500）；
 /// - 断线重连：**先拉后推**，避免缺口；
@@ -358,9 +358,9 @@ Future<List<ImageMeta>> imagesMissingFile(CoreRepository repo,
 /// 本地文件清理：超过 [maxFiles] 时删最旧文件并把 local_path 置 NULL
 /// （文本结果与元数据永久保留）。[onDelete] 由宿主注入真正的删除动作
 /// （同步层保持无 I/O）；为 null 时只断开关联，磁盘文件会残留。
-/// [maxFiles] <= 0 表示**不设限**（用户需求 5）。
+/// [maxFiles] <= 0 表示**不设限**。
 ///
-/// [keep] 里的 hash **永不删除**（M47）：安卓端离线队列里的任务补跑时必须能从
+/// [keep] 里的 hash **永不删除**：安卓端离线队列里的任务补跑时必须能从
 /// 磁盘取到原图，而队列上限（20 条）与本地上限（20 张）是同一个量级 ——
 /// 按时间剪最旧会把队首任务的原图先剪掉，那条任务从此每次补跑都失败。
 Future<int> pruneImageFiles(CoreRepository repo, String Function(String hash) pathOf,

@@ -1,7 +1,7 @@
-/// 悬浮窗的**分块缓存 + CPU 合成**（M36 起；M38 加同步快路径与多份缓存）。
+/// 悬浮窗的**分块缓存 + CPU 合成**（含同步快路径与多份缓存）。
 ///
-/// 背景：M34/M35 时每一帧都要走一遍「`PictureRecorder` → `Picture.toImage` →
-/// 4 MB 像素读回 → 换通道」，实测约 40 ms（用户报「悬浮窗很卡」）。而绝大多数帧
+/// 背景：每一帧都要走一遍「`PictureRecorder` → `Picture.toImage` →
+/// 4 MB 像素读回 → 换通道」，实测约 40 ms，卡顿明显。而绝大多数帧
 /// 只改了一点点东西（滚动、鼠标悬停），整窗重画纯属浪费。
 ///
 /// 做法：把一帧拆成三块，各自**只在内容变化时**出图并缓存，其余每帧只在 Dart 里做
@@ -13,7 +13,7 @@
 /// | content | 内容区整篇（已铺不透明底），宽 = 内容区宽、高 = 内容总高 | 新识别结果、切极简、改字号 |
 /// | overlay | 浮层小图（识别中提示 / 悬停提示），带 alpha | 悬停按钮、识别开始/结束 |
 ///
-/// **两条路径**（M38）：
+/// **两条路径**：
 /// - [composeFast]：三块都命中缓存时**同步**合成（滚动、悬停帧走这条，不产生 Future、
 ///   不进微任务队列）；
 /// - [compose]：需要重新出图时才走（内容是新的、外观变了），异步等 `toImage`。
@@ -29,7 +29,7 @@ import 'package:flutter/painting.dart' show Offset, Rect;
 
 import 'float_window_view.dart';
 
-/// 内容片的**富文本渲染器**（M40）：把「内容坐标 [tileTop, tileTop+tileHeight)」那一段
+/// 内容片的**富文本渲染器**：把「内容坐标 [tileTop, tileTop+tileHeight)」那一段
 /// 用主界面同一套 `QuestionCard` 离屏渲成位图（公式/化学式/表格与主界面一致）。
 typedef FloatContentTileRenderer = Future<Uint8List> Function({
   required double width,
@@ -144,7 +144,7 @@ class _Piece {
 /// 为什么必须留多份：极简 / 锁定 这类顶部按钮是**来回切**的，只留一个槽位时两个
 /// 指纹会互相顶掉 —— 实测每点一次就要重出整张内容图（665×8192 ≈ 22 MB），
 /// 30 轮点击出了 192 张图、RSS 冲到 789 MB，单帧 0.3–1.3 s。用户报的
-/// 「频繁点上面按钮就崩溃」正是这条分配风暴（M38）。
+/// 「频繁点上面按钮就崩溃」正是这条分配风暴。
 ///
 /// 容量按块给（用户能同时翻的**状态组合数**）：
 /// - 外观块：`极简 × 锁定` = 4 种，留 4；
@@ -157,7 +157,7 @@ class _PieceCache {
 
   /// 缓存占用的**字节**上限（MB，0 = 不限）。
   ///
-  /// M47：光有条数上限不够 —— 3.0× 比例 + DPR2 时一张外观块就 37 MB，
+  /// 光有条数上限不够 —— 3.0× 比例 + DPR2 时一张外观块就 37 MB，
   /// 「留 4 份」能到 150 MB，加内容片最坏 ~330 MB（SPEC §9 的内存指标）。
   /// 超预算时从最旧的开始丢（最近用到的留着，命中率不受影响）。
   final int byteBudgetMb;
@@ -193,7 +193,7 @@ class _PieceCache {
 
 /// 内容区**切片高度**（逻辑像素）。
 ///
-/// 为什么要切片（M39，用户报「悬浮窗在默认模式下显示不全被截断」）：
+/// 为什么要切片（用户报「悬浮窗在默认模式下显示不全被截断」）：
 /// 一块位图的高度是被 `clamp(1, 8192)` **物理像素**卡死的，而内容可以很长 ——
 /// 实测一份 20 题的识别结果内容高 **4659 逻辑像素**，DPR2 就是 9318 物理像素，
 /// 整块出图会被截到 8192，于是滚到底部时最后 563 逻辑像素（约两题）永远看不见、
@@ -202,7 +202,7 @@ class _PieceCache {
 /// 比原来那张 8192 的整图快得多，首屏出图也从 650–780 ms 降到 ~150–300 ms）。
 const double kFloatContentTileHeight = 1024;
 
-/// 选中高亮的混色强度（M42）：主色按它叠在内容上（`0.32` 与系统里的选中底接近，
+/// 选中高亮的混色强度：主色按它叠在内容上（`0.32` 与系统里的选中底接近，
 /// 底下的字仍然看得清）。
 const int kFloatSelectionAlpha = 82;
 
@@ -216,22 +216,22 @@ class FloatFrameComposer {
 
   /// 内容切片高度（逻辑像素）。图元直排（便宜）用小片提高命中率；
   /// **富文本渲染（贵）用大片**（见 [renderContentTile]）：一片要重跑一遍 widget
-  /// 管线，片太小就会「每滚十几格重跑一次」→ 滚动卡（M40 用户实测）。
+  /// 管线，片太小就会「每滚十几格重跑一次」→ 滚动卡（ 用户实测）。
   final double contentChunkHeight;
 
   final FloatPieceRenderer renderPiece;
 
-  /// 内容片用富文本渲染（M40）；null = 退回图元直排（老路径/单测）。
+  /// 内容片用富文本渲染；null = 退回图元直排（老路径/单测）。
   final FloatContentTileRenderer? renderContentTile;
 
-  /// 每种块留几份（M38）：见 [_PieceCache] 的说明 —— 来回切极简/锁定时不再重出图。
-  /// 后面的 MB 是 M47 加的**字节**上限（大比例 × 高 DPR 时条数封顶不管用）。
+  /// 每种块留几份：见 [_PieceCache] 的说明 —— 来回切极简/锁定时不再重出图。
+  /// 后面的 MB 是  加的**字节**上限（大比例 × 高 DPR 时条数封顶不管用）。
   final _chromeCache = _PieceCache(4, byteBudgetMb: 48);
 
-  /// 内容区的**切片**缓存（M39）：键 = 内容指纹 ^ 片号。留 8 片
+  /// 内容区的**切片**缓存：键 = 内容指纹 ^ 片号。留 8 片
   /// （1024 逻辑像素/片，DPR2 下一片约 5 MB）≈ 40 MB，够覆盖
   /// 「正常 / 极简两套内容 + 相邻要滚到的片」；3.0× 比例时一片 16 MB 以上，
-  /// 所以再给一条 96 MB 的字节上限（M47）。
+  /// 所以再给一条 96 MB 的字节上限。
   final _tileCache = _PieceCache(8, byteBudgetMb: 96);
   final _overlayCache = _PieceCache(6, byteBudgetMb: 12);
 
@@ -370,7 +370,7 @@ class FloatFrameComposer {
       // `bodyRect.topLeft`（`n.intoBody(delta)`），所以第 i 片的位图左上角落在
       // `(bodyRect.left, bodyRect.top + i×片高)`。漏掉 `bodyRect.topLeft` 会让内容
       // 整体下移一个表头高、右移一个左边距 —— 表现就是用户报的「不顶头 / 底部被
-      // 识别按钮压住 / 左右边距不对等」（M39 的 `⑭` 回归钉住这条）。
+      // 识别按钮压住 / 左右边距不对等」（ 的 `⑭` 回归钉住这条）。
       final tileOrigin = Offset(
           frame.bodyRect.left, frame.bodyRect.top + top);
       final rich = renderContentTile;
@@ -497,7 +497,7 @@ class FloatFrameComposer {
     frameKey = frameKey * 31 + (opacity * 1000).round();
     frameKey = frameKey * 31 + pw;
     frameKey = frameKey * 31 + ph;
-    // 选区也要进帧指纹（M42）：选区一变就得重合成，否则拖选时画面不动。
+    // 选区也要进帧指纹：选区一变就得重合成，否则拖选时画面不动。
     return _Keys(
       chrome: chromeKey,
       content: contentKey,
@@ -615,7 +615,7 @@ class FloatFrameComposer {
             dst, dst + rowPx * copyW, src, inTile * tile.pixelWidth);
       } else {
         // 两侧有留白时**必须逐行**：目标行距是窗口宽 pw，而被拷宽度是内容区宽 bodyW，
-        // 当成一整块连续内存拷会每行漂移（pw - bodyW）像素 —— M39 的这条回归
+        // 当成一整块连续内存拷会每行漂移（pw - bodyW）像素 ——  的这条回归
         // （`⑫`）就是靠「底部一行必须是内容」抓出来的。
         for (var k = 0; k < rowPx; k++) {
           final d = (dstRow + k) * pw + bodyX;
@@ -631,7 +631,7 @@ class FloatFrameComposer {
     lastCopyUs = watch.elapsedMicroseconds -
         (sw == null ? 0 : lastRenderUs) -
         (sw == null ? lastKeysUs : 0);
-    // 文本选区高亮（M42）：直接在合成好的像素上混色，不出图、不新建缓冲。
+    // 文本选区高亮：直接在合成好的像素上混色，不出图、不新建缓冲。
     _paintSelection(out32, pw, ph, selectionRects, selectionArgb,
         kFloatSelectionAlpha, dpr);
     final overlay = parts.overlayRect == null
@@ -640,7 +640,7 @@ class FloatFrameComposer {
     if (overlay != null) {
       _blend(out32, pw, ph, overlay, dpr);
     }
-    // 圆角：M36 把整帧渲染拆块时漏了窗口圆角裁剪，这里在合成结果上补一次
+    // 圆角：整帧渲染拆块的路径容易漏掉窗口圆角裁剪，这里在合成结果上补一次
     // （只动四个角那几小块像素）。外观块自己画的时候也按圆角裁过，两条路都覆盖。
     if (cornerRadius > 0) {
       _roundCorners(out32, pw, ph, (cornerRadius * dpr).round());
@@ -748,7 +748,7 @@ class FloatFrameComposer {
     return (a << 24) | (r << 16) | (g << 8) | b;
   }
 
-  /// 把**文本选区的高亮**直接调进合成好的像素（M42）。
+  /// 把**文本选区的高亮**直接调进合成好的像素。
   ///
   /// 为什么不去出一张「高亮浮层位图」：拖选时每一帧选区都在变，出图一次要
   /// `Picture.toImage` + 读回几十万个像素（几十毫秒），拖起来必然一格一格；

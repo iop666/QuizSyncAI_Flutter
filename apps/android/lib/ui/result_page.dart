@@ -15,15 +15,15 @@ import 'next_round_banner.dart';
 import 'session_tile.dart' show timeLabel;
 
 /// 结果页上那条「电脑正在识别中 / 识别完成」悬浮窗的底色不透明度
-/// （M18 第 3 条：用户要求 85%）。
+/// 。
 const double kResultBannerOpacity = 0.85;
 
-/// 结果页（SPEC 3.3 + 用户需求 1/3/7 + 用户反馈 M16 第 3 条）：
+/// 结果页（SPEC 3.3）：
 /// **一次识别的全部题目在同一页纵向显示完成**，不再会话内分页；
 /// 顶栏底部「上一次识别 / 下一次识别」在多次识别（会话）之间切换，
 /// 标题显示「第 N/M 次识别」；右上角可「重新生成」。
 ///
-/// 用户反馈 M16 第 3 条：**停在结果页时电脑开始识别，页面上要能看见**——
+/// **停在结果页时电脑开始识别，页面上要能看见**——
 /// 页顶浮起一条「电脑正在识别中…（N 张图片）」，出结果时变成「识别完成」，
 /// 随后由「当前任务」页把新结果页推上来（见 `showsHostProgress` 的注释）。
 ///
@@ -61,7 +61,7 @@ class _ResultPageState extends ConsumerState<ResultPage> {
     ref.read(settingsRevisionProvider.notifier).state++;
   }
 
-  /// 「重新生成」（用户需求 7）：让主机按既有页序重跑。
+  /// 「重新生成」：让主机按既有页序重跑。
   Future<void> _reanalyze() async {
     final pairing = ref.read(pairingProvider);
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -128,7 +128,7 @@ class _ResultPageState extends ConsumerState<ResultPage> {
     final hasPrev = index < sessions.length - 1; // 上一次 = 更早
     final hasNext = index > 0; // 下一次 = 更新
 
-    // 电脑正在识别 / 刚识别完（用户反馈 M16 第 3 条；M18 第 3 条调层级与透明度）。
+    // 电脑正在识别 / 刚识别完（含层级与透明度调整）。
     final task = ref.watch(activeTaskProvider);
     final pages = task.imageCount < 1 ? 1 : task.imageCount;
     final Widget? hostBanner = showsHostProgress(task, _currentId)
@@ -160,7 +160,7 @@ class _ResultPageState extends ConsumerState<ResultPage> {
             if (sessions.isNotEmpty && current != null) ...[
               const SizedBox(height: 2),
               Text(
-                // 用户需求 1：标题仍是「第 N/M 次识别」。
+                // 标题仍是「第 N/M 次识别」。
                 '第 ${index + 1} / ${sessions.length} 次识别 · '
                 '${timeLabel(current)}',
                 key: const ValueKey('result-position'),
@@ -240,11 +240,10 @@ class _ResultPageState extends ConsumerState<ResultPage> {
                 ),
               ),
       ),
-      // 内容 + 浮在它**上面**的「电脑正在识别中」悬浮窗（用户反馈 M16 第 3 条）。
+      // 内容 + 浮在它**上面**的「电脑正在识别中」悬浮窗。
       //
-      // M18 第 3 条：用户原话「安卓端已经进入识别结果页面后，windows 端识别时
-      // 安卓端的悬浮窗提示渲染在识别结果题目下。修改为渲染到最上层」。Stack 里
-      // **后画的在上面** [原实现把浮层放在第一个孩子，于是被题目盖住] —— 所以
+      // 安卓端已停在识别结果页时，悬浮提示必须渲染在最上层，不能被压在题目下。
+      // Stack 里 **后画的在上面**（浮层放第一个孩子会被题目盖住）—— 所以
       // 浮层必须是最后一个孩子，下面 `Positioned` 的内容才能被它压住。
       // 透明度由 `kResultBannerOpacity` 给到卡片底色（文字仍完全不透明）。
       body: Stack(
@@ -319,14 +318,14 @@ class _ResultPageState extends ConsumerState<ResultPage> {
                                       ],
                                     ),
                                   ),
-                                // 一次识别的所有题目在同一页纵向显示（用户需求 1）。
+                                // 一次识别的所有题目在同一页纵向显示。
                                 for (final q in questions)
                                   QuestionCard(question: q, fontSize: fontSize),
                               ],
                             ),
                           ),
           ),
-          // 最后画的在最上层（M18 第 3 条）：一定要留在 `Stack` 的孩子末尾。
+          // 最后画的在最上层：一定要留在 `Stack` 的孩子末尾。
           if (hostBanner != null)
             Positioned(left: 12, right: 12, top: 8, child: hostBanner),
         ],

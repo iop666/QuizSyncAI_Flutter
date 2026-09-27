@@ -51,7 +51,7 @@ class TaskStatusView {
   final Session? session;
   final List<Question>? questions;
 
-  /// 本次识别的页数（用户需求 7：显示「N 张图片识别中」）。
+  /// 本次识别的页数。
   final List<String> imageHashes;
 
   const TaskStatusView({
@@ -70,12 +70,11 @@ class TaskStatusView {
   bool get done => status == 'done';
 }
 
-/// `GET /api/v1/tasks/active` 的响应（用户反馈 M15 第 4 条）。
+/// `GET /api/v1/tasks/active` 的响应。
 ///
 /// 安卓端在「当前任务」页每秒问一次这个**只读**端点，作为 WS 推送的兜底：
-/// 用户那台机器上 WS 可能根本连不上（HTTP 一直是好的），只有推送时界面会
-/// 一直停在旧状态（用户原话：「又没有方法让他一直刷新，比如安卓端 1s 获取
-/// 一次状态」）。
+/// 有的机器上 WS 可能根本连不上（HTTP 一直是好的），只靠推送界面会
+/// 一直停在旧状态 —— 有了每秒一次的轮询，界面总能自己刷新到最新状态。
 class ActiveTaskView {
   /// `idle` = 主机当前没有进行中 / 刚结束的识别任务。
   final String status;
@@ -97,20 +96,20 @@ class ActiveTaskView {
   /// 主机记下这次状态的时间（毫秒）。
   final int updatedAt;
 
-  /// 主机**本地 ops 的水位**（M17 第 5 条）：涨了说明主机那边有新改动
+  /// 主机**本地 ops 的水位**：涨了说明主机那边有新改动
   /// （新建/删除合集、改题目…），客户端应当**只拉一次 ops**（pull-only），
   /// 而不是干等下一次全量同步。0 = 主机没上报（老版本）。
   final int opsLamport;
 
-  /// 主机**当前活跃合集列表**（M18 第 4 条）。
+  /// 主机**当前活跃合集列表**。
   ///
-  /// 用户原话：「安卓端现在识别不到无法同步 windows 端的分类，想办法完成同步」。
+  /// 背景：安卓端此前会漏同步主机新建的分类，这里用主机上报的活跃合集主动镜像补齐。
   /// 主机把这份列表直接放进每秒一次的状态探测里，客户端按它对齐本地库
   /// （[CoreRepository.mirrorCollections]）—— 这是「想要的结果」本身，不是
   /// `opsLamport` 那种间接信号，所以不会漏。空列表 = 老主机没上报。
   ///
   /// 语义：**只增改、不删**。主机已经删掉的合集不会出现在这份列表里，客户端
-  /// 保留本地那份（用户明确要求「windows 端删除后安卓端不再同步跟着删除」）。
+  /// 保留本地那份。
   final List<Collection> collections;
 
   const ActiveTaskView({
@@ -275,7 +274,7 @@ class ApiClient {
           '/api/v1/pair',
           data: req.toJson(),
         ));
-    // M47：重复配对按 `protocol.md` 2.2 回 **409 already_paired**，body 里带的
+    // 重复配对按 `protocol.md` 2.2 回 **409 already_paired**，body 里带的
     // 是**新** token（旧的已作废）—— 和 200 一样要当成成功解析，否则用户
     // 「重新配对」时会看到一个莫名其妙的错误。
     if (resp.statusCode != 200 && resp.statusCode != 409) _throw(resp);
@@ -348,7 +347,7 @@ class ApiClient {
     );
   }
 
-  /// 「重新生成」（用户需求 7）：让主机按既有会话的页序重跑一次。
+  /// 「重新生成」：让主机按既有会话的页序重跑一次。
   Future<TaskStatusView> reanalyzeSession(String sessionId) async {
     final resp = await _send(() => dio
         .post<dynamic>('/api/v1/sessions/$sessionId/reanalyze'));
@@ -361,7 +360,7 @@ class ApiClient {
     );
   }
 
-  /// 主机上的合集列表 + 当前选中项（用户需求 8/12）。
+  /// 主机上的合集列表 + 当前选中项。
   Future<CollectionList> fetchCollections() async {
     final resp = await _send(() => dio.get<dynamic>('/api/v1/collections'));
     if (resp.statusCode != 200) _throw(resp);
@@ -418,7 +417,7 @@ class ApiClient {
     );
   }
 
-  /// 「主机现在在识别什么」的只读探测（用户反馈 M15 第 4 条：轮询兜底）。
+  /// 「主机现在在识别什么」的只读探测。
   ///
   /// 与 [getTask] 的区别：不需要先知道 task_id —— 桌面端的本机截屏**不经过
   /// 任务队列**，客户端根本拿不到它的任务 id，只能让主机自己报。

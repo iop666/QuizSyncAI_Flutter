@@ -5,11 +5,11 @@ import 'package:quizsync_core/quizsync_core.dart';
 
 import 'app_scope.dart';
 
-/// 任务合集（用户需求 8）：Windows 首次开始必须新建并选中一个合集，
+/// 任务合集：Windows 首次开始必须新建并选中一个合集，
 /// 之后每次打开都要选择；所有识别都落在当前选中的合集里。
 ///
 /// 选中状态存本地设置（`kActiveCollectionKey`，不参与同步），并通过
-/// `DesktopServerController` 广播给安卓端（用户需求 12）。
+/// `DesktopServerController` 广播给安卓端。
 class CollectionController extends StateNotifier<AsyncValue<List<Collection>>> {
   final Ref ref;
   StreamSubscription<List<Collection>>? _sub;
@@ -31,7 +31,7 @@ class CollectionController extends StateNotifier<AsyncValue<List<Collection>>> {
     }
   }
 
-  /// 新建合集（用户需求 8：首次开始必须命名）。
+  /// 新建合集。
   Future<Collection> create(String name) async {
     final trimmed = name.trim().isEmpty ? '未命名合集' : name.trim();
     final now = nowMs();
@@ -61,7 +61,7 @@ class CollectionController extends StateNotifier<AsyncValue<List<Collection>>> {
     final c = await repo.getCollection(collectionId);
     if (c == null) return;
     await repo.setSetting(kActiveCollectionKey, collectionId);
-    // 记下来供下次启动的选择页标「上次使用」（用户需求 8）。
+    // 记下来供下次启动的选择页标「上次使用」。
     await repo.setSetting(kLastCollectionKey, collectionId);
     ref.read(activeCollectionIdProvider.notifier).state = collectionId;
     ref.invalidate(lastCollectionIdProvider);
@@ -106,7 +106,7 @@ final activeCollectionProvider = Provider<Collection?>((ref) {
   return null;
 });
 
-/// 上次用过的合集 id（用户需求 8：每次打开都要重选，选择页把它标出来并排首位）。
+/// 上次用过的合集 id。
 final lastCollectionIdProvider = FutureProvider<String?>((ref) {
   return ref.watch(repoProvider).getSetting(kLastCollectionKey);
 });

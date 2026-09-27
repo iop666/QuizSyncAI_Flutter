@@ -3,9 +3,9 @@ import 'package:flutter_math_fork/flutter_math.dart';
 
 /// 题目内容渲染（双端共用）。
 ///
-/// 历史：M6 只做「`$...$` 行内公式」，M20 补上 LaTeX 原生的 `\(...\)` / `\[...\]`。
-/// M21 用户反馈「展开材料时，题目/解析/答案的公式（包括化学成分的小标等）、表格
-/// 显示不清晰」，于是这一版把**正文**也当结构化内容来渲染：
+/// 最初只做「`$...$` 行内公式」补上 LaTeX 原生的 `\(...\)` / `\[...\]`；
+/// 现在把**正文**也当结构化内容来渲染：题目/解析/答案里的公式
+/// （包括化学成分的小标等）、表格都要清晰显示。
 ///
 /// 1. **化学式**：`ZnCO3`、`Fe2+`、`H2O2` 这类裸写法（AI 在题干/材料/解析里几乎
 ///    不写 LaTeX）按元素符号切分，数字下沉成下标、电荷上浮成上标；
@@ -25,7 +25,7 @@ class MathText extends StatelessWidget {
 
   const MathText({super.key, required this.text, required this.style});
 
-  /// 公式定界符（M20）：四种写法都认。
+  /// 公式定界符：四种写法都认。
   ///
   /// 顺序有意义：`$$...$$` 必须排在 `$...$` 前面，否则 `$$x$$` 会被拆成两段
   /// 空公式；`\[...\]` / `\(...\)` 同理要先于任何单字符形式尝试。
@@ -50,7 +50,7 @@ class MathText extends StatelessWidget {
 
       // 快路径：纯文本（无公式/表格/化学式）保持老的 `Text`，选择与查找行为不变。
       // 注意必须连**化学式**一起判 —— 只判「只有一个 TextRun」会让
-      // 「ZnCO3 与 Fe2+ 反应」这种正文直接绕过小标渲染（M21 实测踩到）。
+      // 「ZnCO3 与 Fe2+ 反应」这种正文直接绕过小标渲染。
       if (blocks.length == 1 && blocks.first is ParagraphBlock) {
         final runs = (blocks.first as ParagraphBlock).runs;
         if (runs.length == 1 &&
@@ -431,8 +431,8 @@ void _appendWithArrow(List<InlineSpan> out, String text) {
 /// 是不是一个化学式：整串能拆成「元素符号 + 数字 + 电荷」，且至少有一个数字
 /// 或一个电荷（否则 `pH`、`MPa`、`Kp` 这类普通缩写会被当成化学式）。
 ///
-/// 小写 `e` 单独放行：离子方程式里的电子 `2e-` 就是这么写的（用户反馈
-/// 「Cu²⁺ + 2e⁻ 的 ⁻ 显示为 -」）。
+/// 小写 `e` 单独放行：离子方程式里的电子 `2e-` 就是这么写的
+/// （上标 ⁻ 不能退化成普通 -）。
 bool isChemicalFormula(String token) {
   if (token.length > 16) return false;
   final parts = _chemPart.allMatches(token).map((m) => m.group(0)!).toList();
@@ -543,7 +543,7 @@ Widget _mathWidget(String latex, TextStyle style) {
     child: Math.tex(
       latex,
       textStyle: style,
-      // 行内用 text 风格：display 风格会把行高撑得忽高忽低（M21）。
+      // 行内用 text 风格：display 风格会把行高撑得忽高忽低。
       mathStyle: MathStyle.text,
       onErrorFallback: fallback,
     ),

@@ -5,7 +5,7 @@ import 'package:quizsync_ui/quizsync_ui.dart';
 
 import '../../state/app_scope.dart';
 
-/// 识别设置（M9）：采集 / 多页识别 / 本地缓存中真正属于「识别」的项。
+/// 识别设置：采集 / 多页识别 / 本地缓存中真正属于「识别」的项。
 /// 这里原来散落在「采集」和「多页识别与本地缓存」两张卡片里。
 class RecognitionSettingsPage extends ConsumerStatefulWidget {
   const RecognitionSettingsPage({super.key});

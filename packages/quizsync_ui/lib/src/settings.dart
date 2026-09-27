@@ -29,7 +29,7 @@ class DriftKeyValueStore implements KeyValueStore {
 
 enum ThemeMode2 { system, light, dark }
 
-/// Windows 悬浮窗的明暗模式（M32 用户需求 1.11）：默认跟随软件设置。
+/// Windows 悬浮窗的明暗模式：默认跟随软件设置。
 enum FloatWindowTheme {
   followApp('跟随软件设置'),
   light('明亮'),
@@ -50,8 +50,7 @@ class AppSettings {
 
   /// 自定义全局热键（HotKey.toJson）；null = 用默认候选键自动探测。
   ///
-  /// [hotkeyJson] 是「截屏识别」、[multipageHotkeyJson] 是「多页模式」（M46 第 1 条：
-  /// 热键只留两个，默认 F8 / F9）。落库键名沿用 `hotkey_json` 与
+  /// [hotkeyJson] 是「截屏识别」、[multipageHotkeyJson] 是「多页模式」（  /// 热键只留两个，默认 F8 / F9）。落库键名沿用 `hotkey_json` 与
   /// `hotkey_json_append`，**老库里用户设过的「添加页面」键自动变成新的多页热键**；
   /// 原来的 `hotkey_json_finish`（结束多页识别）不再读取也不写入 —— 那条热键已经
   /// 并进「截屏识别」，留着它只会让老配置把一个不存在的动作注册成全局热键。
@@ -60,22 +59,22 @@ class AppSettings {
 
   final int accent; // 主题种子色（ARGB），默认品牌绿 #16A34A
 
-  /// 本地截取图片缓存上限（用户需求 5）：默认 60 张，0 = 不设限。
+  /// 本地截取图片缓存上限：默认 60 张，0 = 不设限。
   final int imageCacheLimit;
 
-  /// 多页识别单次最多页数（用户需求 4）：默认 6，范围 1..12。
+  /// 多页识别单次最多页数：默认 6，范围 1..12。
   final int multiPageLimit;
 
-  /// 题目正文字重（用户反馈 1）：MiSans 可变字体的 wght 轴，默认 400。
+  /// 题目正文字重：MiSans 可变字体的 wght 轴，默认 400。
   final int questionFontWeight;
 
-  /// 界面整体缩放（用户反馈 9）：0.5–3.0，默认 1.0。
+  /// 界面整体缩放：0.5–3.0，默认 1.0。
   final double uiScale;
 
-  /// 安卓「识别模块」（截取图片传主机分析）总开关（用户需求 11）：默认关闭。
+  /// 安卓「识别模块」（截取图片传主机分析）总开关：默认关闭。
   final bool androidRecognitionEnabled;
 
-  /// Windows 悬浮球（用户反馈 11）：开关、大小、透明度、描边。
+  /// Windows 悬浮球：开关、大小、透明度、描边。
   final bool ballEnabled;
   final double ballSize;
   final double ballOpacity;
@@ -83,7 +82,7 @@ class AppSettings {
   final double ballStrokeWidth;
   final double ballStrokeOpacity;
 
-  /// Windows 悬浮窗（M32 用户需求 1）：一个贴在桌面上的小窗，实时显示最近一次
+  /// Windows 悬浮窗：一个贴在桌面上的小窗，实时显示最近一次
   /// 识别结果，并直接在窗内完成「识别 / 多页识别 / 重新识别 / 翻记录」。
   ///
   /// [floatWindowScale] 是**宽度倍率**，[floatWindowAspect] 是三选一的外观
@@ -95,11 +94,11 @@ class AppSettings {
   final double floatWindowScale;
   final double floatWindowFontScale;
 
-  /// 外观 id（[kFloatWindowAspects] 里的 id）——M33 第 15 条：只有三种，
+  /// 外观 id（[kFloatWindowAspects] 里的 id）——只有三种，
   /// 不再支持自由拉伸。
   final String floatWindowAspect;
 
-  /// 配色 id（[kFloatWindowPalettes] 里的 id）——M33 第 9 条，默认浅色系。
+  /// 配色 id（[kFloatWindowPalettes] 里的 id），默认浅色系。
   final String floatWindowPalette;
 
   final bool floatWindowLocked;
@@ -110,7 +109,7 @@ class AppSettings {
   final double floatWindowX;
   final double floatWindowY;
 
-  /// Windows「连接设备」总开关（M32 用户需求 3）：**默认关闭**。
+  /// Windows「连接设备」总开关：**默认关闭**。
   /// 关着时不启动内置服务端（不监听端口）；打开时才启动并申请网络权限。
   final bool connectEnabled;
 
@@ -128,15 +127,15 @@ class AppSettings {
     this.androidRecognitionEnabled = false,
     this.questionFontWeight = 400,
     this.uiScale = 1.0,
-    // 用户反馈 M14 第 4 条：悬浮球默认打开（用户明确要求「默认打开悬浮球」）。
+    // 悬浮球默认打开。
     this.ballEnabled = kDefaultBallEnabled,
     this.ballSize = kDefaultBallSize,
     this.ballOpacity = kDefaultBallOpacity,
-    // M17 第 1 条：描边默认打开、宽 4、不透明度 25%。
+    // 描边默认打开、宽 4、不透明度 25%。
     this.ballStroke = kDefaultBallStroke,
     this.ballStrokeWidth = kDefaultBallStrokeWidth,
     this.ballStrokeOpacity = kDefaultBallStrokeOpacity,
-    // M32：悬浮窗默认关闭，其余按需求里的默认值。
+    // 悬浮窗默认关闭，其余按需求里的默认值。
     this.floatWindowEnabled = kDefaultFloatWindowEnabled,
     this.floatWindowTopmost = kDefaultFloatWindowTopmost,
     this.floatWindowOpacity = kDefaultFloatWindowOpacity,
@@ -300,10 +299,10 @@ class AppSettings {
     final fwOpacity = double.tryParse(map[kFloatWindowOpacityKey] ?? '');
     final fwScale = double.tryParse(map[kFloatWindowScaleKey] ?? '');
     final fwFont = double.tryParse(map[kFloatWindowFontScaleKey] ?? '');
-    // M33：外观只有三种（由 `float_window_aspect` 决定）。M32 存的
-    // `float_window_ratio` / `float_window_stretch` **不再读取** —— 用户这一轮
-    // 明确要求「默认改为竖屏 9:20、删掉自由拉伸」，留着老比例会让老用户
-    // 永远停在横向（实测就是这个问题：旧库 ratio=2.22 但用户要竖屏；而且
+    // 外观只有三种（由 `float_window_aspect` 决定）。老的
+    // `float_window_ratio` / `float_window_stretch` **不再读取** ——
+    // 现行规则是「默认竖屏 9:20、无自由拉伸」，留着老比例会让老用户
+    // 永远停在横向（实测就是这个问题：旧库 ratio=2.22 但要竖屏；而且
     // 那个键已经不在 `toMap()` 里，读也读不到，纯属死代码）。
     final fwAspect = (map[kFloatWindowAspectKey] ?? '').isNotEmpty
         ? map[kFloatWindowAspectKey]
@@ -332,7 +331,7 @@ class AppSettings {
           .clamp(kMinQuestionFontWeight, kMaxQuestionFontWeight),
       uiScale: (scale ?? 1.0).clamp(kMinUiScale, kMaxUiScale),
       // 布尔项用常量默认值：**不能写成 `map[key] == '1'`** —— 键不存在时那是
-      // false，会把构造函数的默认值整个绕过去（M14 第 4 条实测：默认打开悬浮球
+      // false，会把构造函数的默认值整个绕过去（实测踩过：默认打开悬浮球
       // 之后，全新装的机器上悬浮球依然不显示，日志里连一条 `ball` 都没有，
       // 因为读设置时 ballEnabled 恒为 false）。
       ballEnabled: map[kBallEnabledKey] == null
@@ -348,7 +347,7 @@ class AppSettings {
           .clamp(kMinBallStrokeWidth, kMaxBallStrokeWidth),
       ballStrokeOpacity:
           (strokeOpacity ?? kDefaultBallStrokeOpacity).clamp(0.0, 1.0),
-      // M32：同样用常量默认值兜底（悬浮窗**默认关闭**，键不存在时必须是 false
+      // 同样用常量默认值兜底（悬浮窗**默认关闭**，键不存在时必须是 false
       // 而不是被 `== '1'` 判成 false —— 这两者在这里恰好一致，但布尔项一律
       // 走「键为 null → 常量默认值」这条统一写法，避免以后改默认值时漏改）。
       floatWindowEnabled: map[kFloatWindowEnabledKey] == null
@@ -384,18 +383,18 @@ class AppSettings {
   }
 }
 
-/// 题目正文字重可选档位（用户反馈 1）：MiSans 是可变字体，直接给 wght 轴。
+/// 题目正文字重可选档位：MiSans 是可变字体，直接给 wght 轴。
 const List<int> kQuestionFontWeights = [300, 400, 500, 600, 700];
 const int kMinQuestionFontWeight = 200;
 const int kMaxQuestionFontWeight = 800;
 const int kDefaultQuestionFontWeight = 500;
 
-/// 界面缩放（用户反馈 9）：50%–300%。
+/// 界面缩放：50%–300%。
 const double kMinUiScale = 0.5;
 const double kMaxUiScale = 3.0;
 const double kDefaultUiScale = 1.0;
 
-/// 界面上可选的缩放档位（用户反馈 7：只给这些固定选项，25% 一档）。
+/// 界面上可选的缩放档位。
 /// 数值都是 0.5 的整数倍，避免浮点误差导致 `DropdownButton` 匹配不上。
 const List<double> kUiScalePresets = [
   0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0,
@@ -407,7 +406,7 @@ const List<double> kUiScalePresets = [
 /// `map[kBallEnabledKey] == '1'`，键不存在时得到 false，把这里的默认值绕过去 ——
 /// 表现就是「默认打开悬浮球」这个要求怎么改都不生效。
 ///
-/// M44 第 3 条（用户要求）：**默认改成关闭**（和悬浮窗一样，装完不主动占屏幕）。
+/// **默认改成关闭**（和悬浮窗一样，装完不主动占屏幕）。
 /// 值与 `kDefaultBallEnabled`（core `util/keys.dart`）保持一致，改一处要一起改；
 /// 老库里的 `ball_enabled=1` 由 `SettingsController.load()` 一次性迁移。
 const bool kDefaultBallEnabled = false;
@@ -428,7 +427,7 @@ double nearestUiScalePreset(double value) {
 
 /// AI 配置中**不入安全存储**的部分（API Key 单独走 flutter_secure_storage）。
 ///
-/// 用户反馈 8：默认就填好 DeepSeek 的多模态模型与地址，用户只要粘一个 API Key
+/// 默认就填好 DeepSeek 的多模态模型与地址，用户只要粘一个 API Key
 /// 就能用（`deepseek-flash` 支持图片输入，base_url 走 OpenAI 兼容的
 /// `/chat/completions`）。
 class AiUiSettings {
@@ -509,7 +508,7 @@ class SettingsController extends ChangeNotifier {
       final v = await store.read(key);
       if (v != null) map[key] = v;
     }
-    // M43（用户要求「把极简模式改成悬浮窗默认显示的模式」）：老库里存着
+    // 老库里存着
     // `float_window_minimal=0`（那时出厂值就是 0，绝大多数人从没手动选过），
     // 只改常量默认值救不了他们。这里做**一次性**迁移：没见过标记就把显示模式
     // 摆到新默认值并写下标记；之后用户自己的切换一律以库里的值为准。
@@ -519,7 +518,7 @@ class SettingsController extends ChangeNotifier {
       await store.write(kFloatWindowMinimalKey, mode);
       await store.write(kFloatWindowModeMigratedKey, '1');
     }
-    // M44 第 3 条（用户要求「悬浮球默认也关闭」）：同理做一次性迁移 ——
+    // 同理做一次性迁移 ——
     // 老库里存着 `ball_enabled=1`（那时的出厂值就是开），不改的话已装用户升级后
     // 悬浮球照样在屏幕上；之后用户自己开关的状态以库里的值为准。
     if (await store.read(kBallEnabledMigratedKey) != '1') {
@@ -538,7 +537,7 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> updateApp(AppSettings settings) async {
     app = settings;
-    // M47：只写**变化过**的键。设置对象有 32 个字段，原来每动一个开关都要把
+    // 只写**变化过**的键。设置对象有 32 个字段，原来每动一个开关都要把
     // 32 条键依次写一遍磁盘（还都是 await 串行的）。
     await _writeChanged(settings.toMap());
     notifyListeners();

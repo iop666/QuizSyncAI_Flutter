@@ -59,7 +59,7 @@ CapturedImage? readClipboardImageNow() => _readClipboardDib();
 
 /// 读取当前剪贴板里的 DIB 图片；失败返回 null。
 ///
-/// 修（用户反馈 M14 第 3 条「剪贴板监听毫无作用」）：原来先枚举格式、发现
+/// 修：原来先枚举格式、发现
 /// CF_DIB/CF_DIBV5 存在，就只 `GetClipboardData(CF_DIB)`。实测（本机用
 /// PowerShell 的 `Clipboard.SetImage` 放一张真图，再枚举剪贴板）看到：
 /// CF_DIB 确实存在，但它的 `biCompression = 3 = BI_BITFIELDS`（现代截图工具 /
@@ -205,7 +205,7 @@ int _readU16(Uint8List b, int o) => b[o] | (b[o + 1] << 8);
 
 /// 有符号 32 位。**必须真的做符号扩展**：DIB 的 `biHeight` 为负表示
 /// 「自上而下」的行序，不扩展的话 -1 会读成 4294967295，解析直接判成尺寸非法
-/// （M14 第 3 条补的用例就是这么发现的）。
+/// （对应的回归用例就是这么发现的）。
 int _readI32(Uint8List b, int o) {
   final v = b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24);
   return v >= 0x80000000 ? v - 0x100000000 : v;

@@ -4,8 +4,7 @@ import 'package:ffi/ffi.dart';
 import 'package:quizsync_core/quizsync_core.dart' show AppLogger;
 import 'package:win32/win32.dart';
 
-/// 用系统默认程序打开链接 / 文件夹（用户反馈 6「字体许可协议」、
-/// 用户反馈 10「打开文件资源管理器跳到数据目录」）。
+/// 用系统默认程序打开链接 / 文件夹（如字体许可协议、数据目录）。
 ///
 /// 直接走 `ShellExecuteW`（win32 已经在本项目的依赖里），
 /// 不再引入 url_launcher，也不需要任何额外权限。
@@ -41,7 +40,7 @@ bool openExternal(String target) {
 bool revealFolder(String path) => openExternal(path);
 
 // ---------------------------------------------------------------------------
-// 原生「另存为」对话框（用户反馈 2）
+// 原生「另存为」对话框
 // ---------------------------------------------------------------------------
 
 const int _ofnOverwritePrompt = 0x00000002;
@@ -55,7 +54,7 @@ const int _maxPath = 1024;
 // comdlg32 的错误码（CommDlgExtendedError 返回 0 表示「用户取消」）。
 //
 // 注意 0x3000 段是 **FNERR_**（文件名相关），不是 CDERR_*（那个在 0x0000 段）。
-// M12 就是靠它定位到「导出全部失败」的真凶：0x3002 = FNERR_INVALIDFILENAME
+//  就是靠它定位到「导出全部失败」的真凶：0x3002 = FNERR_INVALIDFILENAME
 // —— 调用方用 `Directory('$root/exports')` 拼出来的预填路径是
 // `D:\...\userdata/exports\all-xxx.md`（**正反斜杠混用**），资源管理器对话框
 // 直接拒绝这个文件名，`GetSaveFileNameW` 立刻返回 0。原来把「返回 0」一律
@@ -180,10 +179,10 @@ SavePathChooser savePathChooser = nativePickSavePath;
 /// 用 `GetSaveFileNameW`（comdlg32）而不是新增 `file_selector` 依赖：
 /// win32 / ffi 已经在本项目的依赖里，对话框也是 Windows 原生外观。
 ///
-/// [defaultDir] 是**默认打开目录**（用户反馈 2：默认落在软件所在目录下），
+/// [defaultDir] 是**默认打开目录**，
 /// [defaultName] 是预填文件名，[extension] 是不带点的默认扩展名。
 ///
-/// M12：失败时用 `CommDlgExtendedError()` 把**真实原因**写进日志 ——
+/// 失败时用 `CommDlgExtendedError()` 把**真实原因**写进日志 ——
 /// 原来只判断 `ok == 0` 就当成「用户取消」，任何真实错误（对话框创建失败、
 /// 上一轮没结束……）都会被静默吞掉，用户看到的就是「点了导出没反应」。
 String? nativePickSavePath({
@@ -237,7 +236,7 @@ String? nativePickSavePath({
       AppLogger.instance
           .warn('shell', '另存为未返回路径：$message（owner=$owner dir=$dir）');
       // err == 0 才是用户点「取消」；其它错误必须让调用方报错，
-      // 不能假装成「已取消导出」（M12 的教训）。
+      // 不能假装成「已取消导出」。
       if (err != 0) throw StateError('另存为对话框失败：$message');
       return null;
     }

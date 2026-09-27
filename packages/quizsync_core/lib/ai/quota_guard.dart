@@ -7,7 +7,7 @@ import '../util/ids.dart';
 /// 默认 200 次真实调用（**不含缓存命中**）；达到上限明确提示，不静默失败。
 /// 每次真实调用记录到 `ai_usage` 表。
 ///
-/// M44 第 2 条（用户要求）：[dailyLimit] **≤ 0 表示不设上限** —— 仍然照常记录用量
+/// [dailyLimit] **≤ 0 表示不设上限** —— 仍然照常记录用量
 /// （统计用），但永不拦住调用。
 class QuotaGuard {
   final QuizSyncDb db;

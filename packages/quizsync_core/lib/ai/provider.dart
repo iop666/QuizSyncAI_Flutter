@@ -102,7 +102,7 @@ class AiException implements Exception {
 /// Provider 抽象（`ai-contract.md` 第 1 节）。
 /// 实现必须可被替换为假实现供单测与回环测试使用。
 ///
-/// 用户需求 4：一次识别可以是多页图片，因此入口是**列表**。
+/// 一次识别可以是多页图片，因此入口是**列表**。
 /// 单图调用方（剪贴板、拖入、安卓单击）传长度为 1 的列表即可。
 abstract class QuizAiProvider {
   String get id;

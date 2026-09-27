@@ -21,12 +21,12 @@ import 'crop_retry_dialog.dart';
 import 'settings_page.dart';
 
 /// 主窗口（SPEC 2.2）：左侧会话列表、右侧当前会话内容、底部导航。
-/// M8：整体排版改为「侧栏卡片列表 + 内容头 + 卡片题目 + 底部导航条」。
+/// 整体排版改为「侧栏卡片列表 + 内容头 + 卡片题目 + 底部导航条」。
 class HomePage extends ConsumerStatefulWidget {
   /// 「截屏搜题」入口（由外壳注入协调器；只 pump 页面时为 null）。
   final Future<void> Function()? onCapture;
 
-  /// 采集协调器（用户需求 4）：主界面据此显示多页暂存进度、
+  /// 采集协调器：主界面据此显示多页暂存进度、
   /// 在识别完成后跳转到新会话。只 pump 页面做布局测试时为 null。
   final CaptureCoordinator? coordinator;
 
@@ -36,7 +36,7 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-/// 侧栏数据源：默认只看**当前选中的合集**（用户需求 8）；
+/// 侧栏数据源：默认只看**当前选中的合集**；
 /// 切到「全部记录」或还没选合集时回退到全部会话。
 final sidebarAllSessionsProvider = StateProvider<bool>((ref) => false);
 
@@ -51,7 +51,7 @@ final sidebarSessionsProvider = StreamProvider<List<Session>>((ref) {
 /// 多页暂存区里的页数（协调器 `onStagingChanged` 推到这里；widget 测试可 override）。
 final stagedPageCountProvider = StateProvider<int>((ref) => 0);
 
-/// 会话的页数（用户需求 4）：>1 时侧栏给出「N 页」标记。
+/// 会话的页数：>1 时侧栏给出「N 页」标记。
 final sessionPageCountProvider =
     FutureProvider.autoDispose.family<int, String>((ref, sessionId) async {
   final hashes = await ref.watch(repoProvider).imageHashesOf(sessionId);
@@ -76,7 +76,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       coordinator.onStagingChanged = _onStagingChanged;
       coordinator.onSessionReady = _jumpToSession;
     }
-    // 用户反馈 12：手机发起的识别也要在 Windows 端「显示识别界面」。
+    // 手机发起的识别也要在 Windows 端「显示识别界面」。
     _remoteTask = ref.read(remoteTaskSessionProvider);
     _remoteTask!.addListener(_onRemoteTaskChanged);
     _consumeRemoteTask();
@@ -113,7 +113,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  /// 手机发起了识别（用户反馈 12）：把右侧切到那次识别的会话。
+  /// 手机发起了识别：把右侧切到那次识别的会话。
   void _onRemoteTaskChanged() => _consumeRemoteTask();
 
   void _consumeRemoteTask() {
@@ -135,7 +135,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
-  /// 识别完成 → 跳到新会话（用户需求 2/4：做完就能立刻看到结果）。
+  /// 识别完成 → 跳到新会话。
   void _jumpToSession(String sessionId) {
     if (!mounted) return;
     setState(() {
@@ -229,7 +229,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         },
         child: Column(
           children: [
-            // 用户反馈 5：多页暂存条**只有真正在攒页时才显示**，
+            // 多页暂存条**只有真正在攒页时才显示**，
             // 默认（暂存 0 页）整条不出现，主界面保持干净。
             if (stagedCount > 0)
               _StagingBar(stagedCount: stagedCount, onClear: _clearStaging),
@@ -377,7 +377,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
 /// 顶栏品牌标记：直接显示**应用自己的图标**。
 ///
-/// 用户反馈 8：这里原来是自绘的渐变方块 + 放大镜，跟任务栏/安装包上的
+/// 这里原来是自绘的渐变方块 + 放大镜，跟任务栏/安装包上的
 /// 那枚图标不是同一张图，用户认不出「QuizSync AI」前面这个是软件图标。
 /// 现在复用关于页同一份资源 `assets/app_icon.png`（由 `tool/make_icons.dart`
 /// 从 `icon/QuizSync_AI.png` 生成，自带圆角与透明边），不新造图片。
@@ -404,7 +404,7 @@ class _Logo extends StatelessWidget {
   }
 }
 
-/// 顶栏合集药丸（用户需求 8）：显示当前任务合集，点击弹出合集切换。
+/// 顶栏合集药丸：显示当前任务合集，点击弹出合集切换。
 class _CollectionPill extends ConsumerWidget {
   final Collection? collection;
   final bool showAll;
@@ -470,7 +470,7 @@ class _CollectionPill extends ConsumerWidget {
   }
 }
 
-/// 多页识别暂存条（用户需求 4；用户反馈 5：只在攒页时出现）：
+/// 多页识别暂存条：
 /// 页数进度 + 两个真实热键 + 清空入口。暂存 0 页时整条不渲染。
 class _StagingBar extends ConsumerWidget {
   final int stagedCount;
@@ -593,7 +593,7 @@ class _HotkeyPill extends ConsumerWidget {
   }
 }
 
-/// 顶栏的配对状态药丸（M19 第 1 条 → M21 第 2 条**按用户要求删除**）。
+/// 顶栏的配对状态药丸。
 ///
 /// 用户先要求把「服务 8765 · 0 台」改成配对状态（`已配对设备：安卓设备` /
 /// `未配对`），随后又说「删除掉『未配对』和已配对那个药丸显示」—— 顶栏不再有
@@ -603,7 +603,7 @@ class _HotkeyPill extends ConsumerWidget {
 
 /// 缩略图：有本地文件就显示真图，否则显示占位。
 ///
-/// 用户反馈 M15 第 2 条：`images.local_path` 为空时**回落到约定路径**
+/// `images.local_path` 为空时**回落到约定路径**
 /// `<数据目录>/images/<hash>.jpg`。手机上传的图以前根本不写 local_path
 /// （服务端先写文件、后查库，查到的永远是 null），于是 Windows 主界面对手机
 /// 传来的记录一直显示占位图标；回落既修好了历史数据，也让「库里有记录、
@@ -652,7 +652,7 @@ class _SettingsButton extends StatelessWidget {
   }
 }
 
-/// 左侧历史记录侧栏（用户需求 8）：默认只显示**当前合集**的识别记录，
+/// 左侧历史记录侧栏：默认只显示**当前合集**的识别记录，
 /// 可以一键切到「全部记录」。
 class _SessionSidebar extends ConsumerWidget {
   final List<Session> sessions;
@@ -783,7 +783,7 @@ class _SessionTile extends ConsumerWidget {
     final dark = theme.brightness == Brightness.dark;
     final style = statusStyle(session.status.wire, dark: dark);
     final thumb = ref.watch(_thumbProvider(session.imageHash));
-    // 多页会话（用户需求 4）：侧栏一眼看出这条是几页拼起来的一次识别。
+    // 多页会话：侧栏一眼看出这条是几页拼起来的一次识别。
     final pageCount =
         ref.watch(sessionPageCountProvider(session.sessionId)).valueOrNull ?? 1;
 
@@ -1163,7 +1163,7 @@ class _ContentPane extends ConsumerWidget {
       final dir = Directory('${_dataRoot(ref)}/exports');
       await dir.create(recursive: true);
       final t = DateTime.fromMillisecondsSinceEpoch(s.createdAt);
-      // 用户反馈 2：导出时弹「另存为」，默认目录是软件数据目录。
+      // 导出时弹「另存为」，默认目录是软件数据目录。
       final chosen = savePathChooser(
         title: '导出本次识别（Markdown）',
         defaultDir: dir.path,
@@ -1447,7 +1447,7 @@ class _QuestionsPane extends ConsumerWidget {
             ],
           );
         }
-        // 用户反馈 1：题目正文字重可调（题干单独给，其余文字靠卡片内的
+        // 题目正文字重可调（题干单独给，其余文字靠卡片内的
         // DefaultTextStyle 继承）。
         final weight = ref.watch(settingsProvider).app.questionFontWeight;
         return ListView.builder(

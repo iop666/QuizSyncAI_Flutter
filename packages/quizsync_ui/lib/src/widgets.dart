@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'theme_colors.dart';
 
-/// 双端共用的小组件（M8 界面优化）：分区卡片、状态药丸、空状态。
+/// 双端共用的小组件：分区卡片、状态药丸、空状态。
 
 /// 设置页/详情页的分区卡片：标题 + 说明 + 内容，统一描边圆角。
 class SectionCard extends StatelessWidget {

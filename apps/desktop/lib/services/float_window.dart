@@ -19,7 +19,7 @@ abstract class FloatWindowSurface {
 
   /// 先告诉窗口「一逻辑像素等于几个物理像素」。
   ///
-  /// **必须在 [setPosition] 之前调用**（M32 实测踩到）：原生侧的位置、热区都是
+  /// **必须在 [setPosition] 之前调用**：原生侧的位置、热区都是
   /// 物理像素，而 `_dpr` 只在 `setFrame` 里才会被更新 —— 首次
   /// `setPosition(1016, 120)` 时 `_dpr` 还是默认的 1，于是窗口被摆到物理
   /// (1016,120) 而不是 (2032,240)，在 200% 缩放的机器上偏到屏幕左边。
@@ -34,7 +34,7 @@ abstract class FloatWindowSurface {
     required Map<String, Rect> hits,
     required Rect dragRect,
 
-    /// 内容区矩形（逻辑像素）：拖选文本只在这个区域里开始（M42）。
+    /// 内容区矩形（逻辑像素）：拖选文本只在这个区域里开始。
     Rect bodyRect = Rect.zero,
 
     /// 内容区是否可拖选（极简模式才开；关着时原生根本不接管按下）。
@@ -42,7 +42,7 @@ abstract class FloatWindowSurface {
   });
 }
 
-/// Windows 悬浮窗（M32 用户需求 1 / M33 修订）：**原生分层窗口** +
+/// Windows 悬浮窗：**原生分层窗口** +
 /// `UpdateLayeredWindow`。
 ///
 /// 与悬浮球同一个套路（见 `services/floating_ball.dart` 的类注释）：不在 overlay
@@ -51,12 +51,12 @@ abstract class FloatWindowSurface {
 ///
 /// 1. 建一个 `WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE` 的 popup 窗口；
 /// 2. 把 Dart 送来的预乘 BGRA 贴上去（[setFrame]）；
-/// 3. 处理鼠标：**只有顶部第一栏能拖窗口**（M33 第 4 条，拖拽区由 Dart 给）、
+/// 3. 处理鼠标：**只有顶部第一栏能拖窗口**（拖拽区由 Dart 给）、
 ///    点击（命中 Dart 送来的可点区域 → [onAction]）、悬停（[onHover]，
-///    M33 第 3 条的图标提示）、滚轮（[onScroll]）；
+///     第 3 条的图标提示）、滚轮（[onScroll]）；
 /// 4. 截屏前隐藏（[setVisibleForCapture]）。
 ///
-/// M33 第 15 条删掉了「拉边改比例」：外观只在三种预设里选，原生侧不再有任何
+///  第 15 条删掉了「拉边改比例」：外观只在三种预设里选，原生侧不再有任何
 /// 改尺寸的逻辑，窗口尺寸完全由设置决定。
 class FloatWindow implements FloatWindowSurface {
   FloatWindow({
@@ -82,7 +82,7 @@ class FloatWindow implements FloatWindowSurface {
   /// 滚轮（正 = 向下滚）。
   final void Function(int notches)? onScroll;
 
-  /// 内容区按下，开始拖选（**逻辑窗口坐标**；M42 极简模式的文本可选）。
+  /// 内容区按下，开始拖选（**逻辑窗口坐标**；极简模式的文本可选）。
   final void Function(double x, double y)? onSelectBegin;
 
   /// 拖选中（逻辑窗口坐标）。
@@ -91,7 +91,7 @@ class FloatWindow implements FloatWindowSurface {
   /// 拖选结束（松手）。
   final void Function()? onSelectEnd;
 
-  /// 在内容区右键：请求复制当前选中的文本（M42）。
+  /// 在内容区右键：请求复制当前选中的文本。
   ///
   /// **为什么是右键**：这个窗口是 `WS_EX_NOACTIVATE`（不抢焦点），拿不到键盘消息，
   /// 所以 `Ctrl+C` 在它上面天生不可用；复制选区的入口只能挂在鼠标上。
@@ -125,10 +125,10 @@ class FloatWindow implements FloatWindowSurface {
   /// 当前可点区域（逻辑像素，窗口内坐标）。
   Map<String, Rect> _hits = const {};
 
-  /// 拖拽区（逻辑像素）：**只有落在它里面的按下才开始拖窗口**（M33 第 4 条）。
+  /// 拖拽区（逻辑像素）：**只有落在它里面的按下才开始拖窗口**。
   Rect _dragRect = Rect.zero;
 
-  /// 内容区矩形（逻辑像素）+ 是否允许拖选文本（M42，极简模式才开）。
+  /// 内容区矩形（逻辑像素）+ 是否允许拖选文本（极简模式才开）。
   Rect _bodyRect = Rect.zero;
   bool _textSelectable = false;
 
@@ -151,7 +151,7 @@ class FloatWindow implements FloatWindowSurface {
 
   /// 一次「按下→松开」的位移阈值（**逻辑**像素）：小于它才算点击。
   ///
-  /// M47：这个值以前直接和 `GetCursorPos` 的物理像素比 —— 150% / 200% 缩放下
+  /// 这个值以前直接和 `GetCursorPos` 的物理像素比 —— 150% / 200% 缩放下
   /// 实际只剩 4 / 3 逻辑像素，顶部那排按钮（都在可拖拽的标题栏里）很容易被判成
   /// 拖动而点不中。真正用于比较的物理阈值见 [_clickSlopPx]。
   static const int _clickSlopLogical = 6;
@@ -159,7 +159,7 @@ class FloatWindow implements FloatWindowSurface {
   int get _clickSlopPx =>
       (_clickSlopLogical * (_dpr <= 0 ? 1.0 : _dpr)).round().clamp(1, 512);
 
-  /// 首帧之后不再每帧 `ShowWindow`（M38）：窗口早就可见了。
+  /// 首帧之后不再每帧 `ShowWindow`：窗口早就可见了。
   bool _shownOnce = false;
 
   bool get isVisible => _hwnd != 0 && _visible;
@@ -214,7 +214,7 @@ class FloatWindow implements FloatWindowSurface {
         .info('float-window', value ? '悬浮窗位置已锁定' : '悬浮窗位置已解锁（可拖动第一栏）');
   }
 
-  /// 置顶开关（用户需求 1.1）。只改 Z 序，不动像素。
+  /// 置顶开关。只改 Z 序，不动像素。
   @override
   void setTopmost(bool value) {
     if (_topmost == value) return;
@@ -226,7 +226,7 @@ class FloatWindow implements FloatWindowSurface {
   }
 
   /// 先告诉窗口「一逻辑像素 = 几个物理像素」。**必须在 [setPosition] 之前调用**
-  /// （M32 实测踩到：原生侧的坐标/尺寸都是物理像素，而 `_dpr` 只在 [setFrame] 里
+  /// （ 实测踩到：原生侧的坐标/尺寸都是物理像素，而 `_dpr` 只在 [setFrame] 里
   /// 更新 —— 首次定位时它还是默认 1，200% 缩放的机器上窗口会被摆到
   /// 物理 (1016,120) 而不是 (2032,240)，看起来**偏到屏幕左边**）。
   @override
@@ -282,14 +282,14 @@ class FloatWindow implements FloatWindowSurface {
     }
     _blit();
     // 第一帧之后不再每帧 `ShowWindow`：窗口早就可见了，每帧再 SHOW 一次只是白白
-    // 叫一次 USER32（M38 顺手收掉；显示/隐藏的语义由 `show()` / `hide()` /
+    // 叫一次 USER32（ 顺手收掉；显示/隐藏的语义由 `show()` / `hide()` /
     // `setVisibleForCapture()` 负责）。
     if (_visible && !_shownOnce) {
       _shownOnce = true;
       ShowWindow(_hwnd, SW_SHOWNOACTIVATE);
     }
     // 首帧落上去之后才打印**真实**的几何：`show()` 里打印的是「首帧之前」的
-    // 占位尺寸（M32 探针实测时正好被它误导过）。
+    // 占位尺寸（ 探针实测时正好被它误导过）。
     if (!_firstFrameLogged) {
       _firstFrameLogged = true;
       AppLogger.instance.info('float-window',
@@ -363,7 +363,7 @@ class FloatWindow implements FloatWindowSurface {
     }
   }
 
-  /// 默认位置：屏幕右侧、不贴边（用户需求 1.6）。真正的位置一般由 Dart 侧
+  /// 默认位置：屏幕右侧、不贴边。真正的位置一般由 Dart 侧
   /// 按已保存的设置算好再 `setPosition`；这里只是兜底。
   void _dockDefault() {
     final screenW = GetSystemMetrics(SM_CXSCREEN);
@@ -430,7 +430,7 @@ class FloatWindow implements FloatWindowSurface {
           '跳过绘制（hwnd=$_hwnd dc=$_memDc dib=$_dib bits=$_bits）');
       return;
     }
-    // M47：`hWndInsertAfter = 0` 是 `HWND_TOP`（把窗口提到最上面），**不是**
+    // `hWndInsertAfter = 0` 是 `HWND_TOP`（把窗口提到最上面），**不是**
     // 「Z 序不动」。非置顶时每帧都这么调，等于「取消置顶」永远无效。真正的
     // 「别动 Z 序」是加 `SWP_NOZORDER` —— Z 序只在 `setTopmost` 里改一次。
     SetWindowPos(
@@ -451,8 +451,8 @@ class FloatWindow implements FloatWindowSurface {
     final src = calloc<POINT>()..ref.x = 0;
     final blend = calloc<BLENDFUNCTION>()
       ..ref.BlendOp = _acSrcOver
-      // 透明度已经在 Dart 侧乘进像素（M38），这里恒 255。
-      // 注：M36 曾把整窗透明度交给这里的 `SourceConstantAlpha`。M38 用同一份 exe
+      // 透明度已经在 Dart 侧乘进像素，这里恒 255。
+      // 注：曾把整窗透明度交给这里的 `SourceConstantAlpha`，也用同一份 exe
       // 做过 A/B（`QUIZSYNC_FW_DWMALPHA`），两条路的分段耗时一样 —— 真正让滚动掉到
       // 1 fps 的是热路径上那次 `await`（见 `float_window_presenter.dart`），不是这里；
       // 保留「乘进像素」是因为它不依赖 DWM 的混合路径。
@@ -538,7 +538,7 @@ class FloatWindow implements FloatWindowSurface {
     return phys.contains(Offset(x.toDouble(), y.toDouble()));
   }
 
-  /// 该点是否在内容区里（M42：拖选文本的起点判定）。
+  /// 该点是否在内容区里（拖选文本的起点判定）。
   bool _inBodyRect(int x, int y) {
     final r = _bodyRect;
     if (r.width <= 0 || r.height <= 0) return false;
@@ -563,9 +563,9 @@ class FloatWindow implements FloatWindowSurface {
     _originY = _py;
     _moved = false;
     SetCapture(hwnd);
-    // M33 第 4 条：**只有顶部第一栏**能拖动窗口。
+    // **只有顶部第一栏**能拖动窗口。
     _dragging = !_locked && _inDragRect(x, y);
-    // M42：内容区里按下（且极简模式开着）就开始拖选文本 —— 原生只负责把
+    // 内容区里按下（且极简模式开着）就开始拖选文本 —— 原生只负责把
     // **逻辑坐标**原样转给 Dart，命中的是哪个字由 Dart 那边算。
     _selecting = false;
     if (!_dragging && _textSelectable && _inBodyRect(x, y)) {

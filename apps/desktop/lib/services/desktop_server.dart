@@ -6,7 +6,7 @@ import 'package:quizsync_core/quizsync_core.dart';
 import '../state/app_info.dart' show kAppVersion;
 import '../state/settings.dart' show AiUiSettings;
 
-/// 桌面端内置服务端的持有者（M4）。
+/// 桌面端内置服务端的持有者。
 class DesktopServerController {
   QuizSyncServer? server;
   int? port;
@@ -62,11 +62,11 @@ class DesktopServerController {
       serverName: host,
       options: QuizSyncServerOptions(
           preferredPort: preferredPort,
-          // M46 第 4 条：主机自报的版本跟着产品版本走（「关于」页、`/info` 的
+          // 主机自报的版本跟着产品版本走（「关于」页、`/info` 的
           // `app_version`、响应头 `X-QS-Server-Version` 三处同源）。
           appVersion: kAppVersion),
     );
-    // 用户反馈 12：手机提交的任务也要让 Windows 端「显示识别界面」。
+    // 手机提交的任务也要让 Windows 端「显示识别界面」。
     s.onTaskUpdateHook = onTaskUpdate;
     try {
       port = await s.start();
@@ -84,12 +84,12 @@ class DesktopServerController {
     port = null;
   }
 
-  /// 桌面端切换/新建合集后通知安卓端（用户需求 12）。
+  /// 桌面端切换/新建合集后通知安卓端。
   Future<void> notifyCollectionChanged() async {
     await server?.notifyCollectionChanged();
   }
 
-  /// 桌面端**本地**截屏的状态广播（用户反馈 2）：手机端据此显示
+  /// 桌面端**本地**截屏的状态广播：手机端据此显示
   /// 「N 张图片识别中…」，完成后自动加载结果。
   void notifyLocalSession(String sessionId, String status,
       {int imageCount = 0}) {

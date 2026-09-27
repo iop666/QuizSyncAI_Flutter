@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-/// 双端共用的视觉基线（M8 界面优化）：
+/// 双端共用的视觉基线：
 /// 统一的圆角、描边卡片、输入框、按钮、SnackBar 与配色。
 ///
 /// 约束：SPEC 4.3 的「标绿」颜色由 [HighlightColors] 固定，**不随主题种子色变化**。
 class AppRadius {
   static const card = 16.0;
 
-  /// 控件圆角（输入框 / 按钮 / 导航项）：M9 按 Fluent 观感收到 10。
+  /// 控件圆角（输入框 / 按钮 / 导航项）：按 Fluent 观感取 10。
   static const control = 10.0;
   static const chip = 999.0;
 }
@@ -61,7 +61,7 @@ class QuizSyncTheme {
       titleSmall: base.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
       labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
     );
-    // 用户反馈 1：Windows 端整体换成 MiSans（可变字体）。
+    // Windows 端整体换成 MiSans（可变字体）。
     final text = fontFamily == null
         ? weighted
         : _withFamily(weighted, fontFamily, fontFamilyFallback);
@@ -245,7 +245,7 @@ TextTheme _withFamily(
   );
 }
 
-/// 字重档位（用户反馈 1）：MiSans 的 wght 轴 100–900，这里取常用五档。
+/// 字重档位：MiSans 的 wght 轴 100–900，这里取常用五档。
 FontWeight fontWeightOf(int wght) {
   final index = ((wght / 100).round() - 1).clamp(0, 8);
   return FontWeight.values[index];

@@ -73,12 +73,12 @@ class CoreRepository {
   final LamportClock clock = LamportClock();
   late final SyncOpWriter writer;
 
-  /// 远端 op 里的「删除合集」是否落地成 tombstone（M18 第 4 条）。
+  /// 远端 op 里的「删除合集」是否落地成 tombstone。
   ///
   /// 默认 `true`（两端口径一致：对端删了本地也删）。
   ///
-  /// 安卓端传 `false`：用户明确要求**修改 M17 的第 5 条** ——
-  /// 「windows 端删除后安卓端不再同步跟着删除」。主机删掉一个合集时，手机本地
+  /// 安卓端传 `false`：Windows 端删除后安卓端不再同步跟着删除。
+  /// 主机删掉一个合集时，手机本地
   /// 那一行原样保留（历史里那个分组不消失、下面的识别记录也不会被打散成
   /// 「未分类」）。
   ///
@@ -178,7 +178,7 @@ class CoreRepository {
   }
 
   /// 时间倒序、排除 tombstone（列表唯一入口）。
-  /// [collectionId] 非空时只返回该合集的会话（用户需求 8/9）。
+  /// [collectionId] 非空时只返回该合集的会话。
   Future<List<Session>> listSessions({int limit = 500, String? collectionId}) async {
     final rows = await (db.select(db.sessions)
           ..where((t) => collectionId == null
@@ -200,7 +200,7 @@ class CoreRepository {
     return query.watch().map((rows) => rows.map(sessionFromRow).toList());
   }
 
-  /// 识别顺序升序（合集导出用，用户需求 9）。
+  /// 识别顺序升序（合集导出用）。
   Future<List<Session>> listSessionsAscending({String? collectionId}) async {
     final rows = await (db.select(db.sessions)
           ..where((t) => collectionId == null
@@ -522,7 +522,7 @@ class CoreRepository {
   }
 
   // ============================================================
-  // collections（用户需求 8/9）
+  // collections
   // ============================================================
 
   Future<Collection> upsertCollection(Collection c) async {
@@ -562,16 +562,16 @@ class CoreRepository {
     });
   }
 
-  /// 主机**活跃合集列表**的镜像导入（M18 第 4 条）。
+  /// 主机**活跃合集列表**的镜像导入。
   ///
-  /// 用户原话：「安卓端现在识别不到无法同步 windows 端的分类，想办法完成同步」。
+  /// 背景：安卓端此前会漏同步主机新建的分类，这里用主机上报的活跃合集主动镜像补齐。
   /// 症状是主机新建的合集在手机本地根本没有那一行，于是主机识别的记录在手机
   /// 「历史」里全被算进「未分类」。原来的落地通道只有 ops 拉取，而拉取靠
   /// `ops_lamport` 水位这种**间接信号**触发：水位基线/断线/WS 不可用任一环节
   /// 出问题就漏，且漏了不会自愈。现在主机把「当前的活跃合集列表」直接放进每秒
   /// 一次的状态探测里，客户端按这份**想要的结果**对齐本地库 —— 差什么补什么。
   ///
-  /// 语义（用户反馈 M18 第 4 条明确要求，与 M17 相反）：
+  /// 语义：
   /// - **只增改，不删**：主机列表里没有的合集在本地原样保留，绝不变 tombstone。
   ///   于是「Windows 端删除后安卓端不再同步跟着删除」。
   /// - 本机已删除的合集（本地 tombstone）**绝不复活**：删除是用户的明确动作
@@ -675,7 +675,7 @@ class CoreRepository {
   }
 
   // ============================================================
-  // session_images（用户需求 4：多页题目一次识别）
+  // session_images
   // ============================================================
 
   Future<SessionImage> upsertSessionImage(SessionImage s) async {
@@ -878,7 +878,7 @@ class CoreRepository {
     return rows.map(deviceFromRow).toList();
   }
 
-  /// 设备列表的库变更流（用户反馈：主界面药丸停在「未配对」不动）。
+  /// 设备列表的库变更流。
   ///
   /// 主界面顶栏那条配对状态原来只在挂载时查一次库（`FutureProvider` 且没有
   /// 任何失效时机），于是「App 先开着、手机后来才扫码配对」这条最平常的路径
@@ -943,7 +943,7 @@ class CoreRepository {
         case SyncEntity.device:
           return _applyRemoteDevice(op, fields);
         case SyncEntity.snapshot:
-          // 快照折叠在 M6 实现；收到时先只记账。
+          // 快照折叠在  实现；收到时先只记账。
           return ApplyRemoteResult(
               duplicate: false, appliedFields: {}, protectedFields: {});
       }
@@ -952,7 +952,7 @@ class CoreRepository {
 
   Future<ApplyRemoteResult> _applyRemoteCollection(
       SyncOp op, Map<String, dynamic> fields) async {
-    // M18 第 4 条：安卓端不跟随主机的删除（见 applyRemoteCollectionDeletes）。
+    // 安卓端不跟随主机的删除（见 applyRemoteCollectionDeletes）。
     // 只记账不回写 —— op 已经在 applyRemoteOp 里入库、时钟也已 observe，
     // 所以拉取游标不会因为「跳过一次落地」而卡住。
     if (!applyRemoteCollectionDeletes &&

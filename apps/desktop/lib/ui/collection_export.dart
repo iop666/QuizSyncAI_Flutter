@@ -8,9 +8,9 @@ import 'package:quizsync_core/quizsync_core.dart';
 import '../services/shell_open.dart';
 import '../state/app_scope.dart';
 
-/// 合集导出（用户需求 9）：把当前合集的全部识别记录按**识别顺序**导出。
+/// 合集导出：把当前合集的全部识别记录按**识别顺序**导出。
 ///
-/// 用户反馈 2（本轮）：不再默默写进数据目录 —— 点导出时弹**系统另存为对话框**，
+/// 不再默默写进数据目录 —— 点导出时弹**系统另存为对话框**，
 /// 默认目录就是软件自己的数据目录（`<应用目录>/data/exports`），用户可以改到
 /// 桌面 / U 盘等任意位置。Markdown 与 JSON 同名各写一份（改扩展名即可）。
 ///
@@ -90,7 +90,7 @@ Future<void> exportCollection(
     await dir.create(recursive: true);
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final stem = 'collection-${collectionFileStem(collection.name)}-$stamp';
-    // 用户反馈 2：默认目录 = 软件数据目录下的 exports/；用户可以另选位置。
+    // 默认目录 = 软件数据目录下的 exports/；用户可以另选位置。
     final chosen = savePathChooser(
       title: '导出合集「${collection.name}」（Markdown；同名 .json 一起写出）',
       defaultDir: dir.path,

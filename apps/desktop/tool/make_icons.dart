@@ -1,7 +1,7 @@
 // 生成桌面端图标资源（一次性工具，产物已提交）：
 //   cd apps/desktop && dart run tool/make_icons.dart
 //
-// 输入（仓库根目录 icon/，用户提供的品牌图）：
+// 输入（仓库根目录 icon/ 下的品牌图）：
 //   icon/QuizSync_AI.png  应用程序图标源图（1254×1254）——窗口/任务栏/安装包用
 //   icon/Statusbar.png    状态栏（托盘）图标源图（636×636）
 //   icon/FloatingBall_Default.png            悬浮球：待识别
@@ -16,16 +16,16 @@
 //                                           (SM_CYSMICON) 对 BMP 帧最稳）
 //   assets/floating_ball_*.png              悬浮球三态（256×256，**圆形 + 透明底**）
 //
-// 用户反馈 1（M11）：Windows 任务栏图标不是圆角。Windows 不会替应用图标自动
+// Windows 任务栏图标不是圆角。Windows 不会替应用图标自动
 // 加圆角，所以这里在生成时就把方图裁成圆角（alpha 遮罩，带抗锯齿），
 // 任务栏、Alt+Tab、开始菜单、文件资源管理器里看到的都会是圆角。
 //
-// 用户反馈 1（M12）：**状态栏（托盘）图标也还是方的**。源图 `Statusbar.png`
+// **状态栏（托盘）图标也还是方的**。源图 `Statusbar.png`
 // 是「白底 + 蓝色字形」（实测四角 (254,254,254) 不透明），托盘里就是一个白
 // 方块。这里对它套上和应用图标同一套 22% 圆角遮罩 —— 托盘、任务栏角落看到的
 // 都是圆角图标。
 //
-// 用户反馈 11（M12）：悬浮球三张源图也是**白底不透明**（白底占比 40%），
+// 悬浮球三张源图也是**白底不透明**（白底占比 40%），
 // 直接缩放上去会是一个白方块。这里先把**球外部的白底**按连通域去掉（球内部
 // 的白色字形保留），再套圆形遮罩，得到可直接放到任意尺寸的透明圆形 PNG。
 import 'dart:io';
@@ -62,7 +62,7 @@ void main() {
   final outDir = Directory('assets')..createSync(recursive: true);
 
   // ---------------------------------------------------------------
-  // 1. 应用程序图标（用户反馈 1：任务栏要圆角；用户反馈 4：关于页用应用图标）
+  // 1. 应用程序图标
   // ---------------------------------------------------------------
   final appIcon = _rounded(appRaw, 256);
   final appPng = File('${outDir.path}/app_icon.png')
@@ -73,14 +73,14 @@ void main() {
     ..writeAsBytesSync(appIco);
 
   // ---------------------------------------------------------------
-  // 2. 托盘（状态栏）图标：与应用图标同一套圆角（用户反馈 1，本轮）
+  // 2. 托盘（状态栏）图标：与应用图标同一套圆角
   // ---------------------------------------------------------------
   final statusIco = _buildIco(_framesOf(statusRaw));
   final statusIcoFile = File('${outDir.path}/statusbar.ico')
     ..writeAsBytesSync(statusIco);
 
   // ---------------------------------------------------------------
-  // 3. 悬浮球三态（用户反馈 11）：去白底 + 圆形
+  // 3. 悬浮球三态：去白底 + 圆形
   // ---------------------------------------------------------------
   final ballReports = <String>[];
   for (final entry in _ballSources.entries) {
@@ -285,7 +285,7 @@ bool _insideRoundedRect(double px, double py, int size, double r) {
   return dx * dx + dy * dy <= r * r;
 }
 
-/// 所有尺寸的帧，统一带圆角（应用图标与托盘图标都是圆角，用户反馈 1）。
+/// 所有尺寸的帧，统一带圆角（应用图标与托盘图标都是圆角）。
 List<_Frame> _framesOf(img.Image source) {
   final frames = <_Frame>[];
   for (final size in _bmpSizes) {

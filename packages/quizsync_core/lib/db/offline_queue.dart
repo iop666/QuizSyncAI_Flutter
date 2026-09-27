@@ -51,7 +51,7 @@ class OfflineQueue {
   /// 计数与插入放在同一事务里，避免并发入队越过上限。
   ///
   /// [imageHashes] / [collectionId] 会写进 `payload_json`：多页识别与合集
-  /// 归属必须在离线补跑时原样复原（用户需求 4/8）。
+  /// 归属必须在离线补跑时原样复原。
   Future<TaskRow> enqueue({
     required String imageHash,
     required String sourceDevice,

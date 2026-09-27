@@ -9,12 +9,12 @@ import '../state/providers.dart';
 import 'result_page.dart';
 import 'session_tile.dart';
 
-/// 历史记录 tab（用户需求 8/9/13）：
+/// 历史记录 tab：
 /// 先按**合集**分组（本地库来自同步），点进合集看该合集的识别记录，
 /// 再点进记录看题目；搜索时退化为平铺的命中列表。
 /// 删除走二次确认（滑动或长按）。
 ///
-/// 用户需求 A：**安卓端不再有导出/分享入口**——安卓是结果显示器，
+/// **安卓端不提供导出/分享入口**——安卓是结果显示器，
 /// 导出在 Windows 端做（`services/collection_export.dart` 打 Markdown 文件
 /// 的能力保留给桌面端与单测，界面上不再出现分享按钮）。
 class HistoryTab extends ConsumerStatefulWidget {
@@ -30,7 +30,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
   Set<String> _hits = {};
   Timer? _debounce;
 
-  /// 正在「选中删除」的合集 id（M18 第 2 条：用户要求「安卓端可以选中删除合集」）。
+  /// 正在「选中删除」的合集 id。
   ///
   /// 非空 = 进入多选模式：点合集变「选中 / 取消选中」，顶部出现一条操作栏
   /// （已选 N 个 · 取消 · 删除）。用「长按进入」而不是给每个卡片加一个删除图标，
@@ -109,7 +109,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
   }
 
   // ------------------------------------------------------------
-  // 选中删除合集（M18 第 2 条）
+  // 选中删除合集
   // ------------------------------------------------------------
 
   void _toggleSelection(String collectionId) {
@@ -161,7 +161,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
   /// 只删合集本身，**不级联删除**它下面的识别记录（那批记录会回到「未分类」，
   /// 与 Windows 端的删除语义一致）。本机删除会生成一条 op 并同步给主机 ——
   /// 手机上主动删是用户的明确动作，两端一起没；反过来主机删合集**不会**让手机
-  /// 丢分组（M18 第 4 条：用户要求「windows 端删除后安卓端不再同步跟着删除」）。
+  /// 丢分组。
   Future<void> _deleteSelected() async {
     final ids = _selected.toList();
     if (ids.isEmpty) return;
@@ -281,7 +281,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
               ? null
               : Icon(Icons.chevron_right,
                   size: 20, color: theme.colorScheme.outline),
-          // 长按 = 选中这个合集并进入多选模式（M18 第 2 条）。
+          // 长按 = 选中这个合集并进入多选模式。
           onLongPress: selectable && id != null
               ? () => _toggleSelection(id)
               : null,
@@ -360,7 +360,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
       );
 }
 
-/// 合集详情：该合集的识别记录（用户需求 8 的第二层）。
+/// 合集详情：该合集的识别记录。
 class CollectionSessionsPage extends ConsumerWidget {
   final String? collectionId;
   final String title;
@@ -412,7 +412,7 @@ class CollectionSessionsPage extends ConsumerWidget {
   }
 }
 
-/// 删除一条识别记录（用户需求 13）：**必须二次确认**，软删除并同步到主机。
+/// 删除一条识别记录：**必须二次确认**，软删除并同步到主机。
 Future<bool> confirmDeleteSession(
   BuildContext context,
   WidgetRef ref,

@@ -10,7 +10,7 @@ abstract class ImageFileStore {
   /// 这张图落盘后的**本地绝对路径**（内存实现返回 null）。
   ///
   /// 服务端收到手机上传的图后要把它写进 `images.local_path`，Windows 主界面的
-  /// 缩略图 / 「重新分析」都靠这一列找文件（用户反馈 M15 第 2 条：手机传来的图
+  /// 缩略图 / 「重新分析」都靠这一列找文件（手机传来的图此前
   /// 在 Windows 端一直没有缩略图，就是因为上传处理器没写这一列）。
   String? pathFor(String hash) => null;
 }

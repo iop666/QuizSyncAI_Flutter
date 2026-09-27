@@ -16,7 +16,7 @@ class MainActivity : FlutterActivity() {
         flutterEngine.plugins.add(CaptureBridge())
         // 悬浮球由 CaptureBridge 以 applicationContext 单例持有：
         // 挂在 Activity 上会随授权录屏时的 Activity 重建一起被系统移除。
-        // 系统栏外观（M13）：引擎在 API 35+ 不设状态栏底色，必须自己来。
+        // 系统栏外观：引擎在 API 35+ 不设状态栏底色，必须自己来。
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             SystemUiBridge.CHANNEL,
@@ -58,7 +58,7 @@ class MainActivity : FlutterActivity() {
         if (requestCode == CaptureBridge.REQUEST_NOTIFICATIONS) {
             CaptureBridge.handlePermissionResult(permissions, granted)
         } else if (requestCode == CaptureBridge.REQUEST_CAMERA) {
-            // 配对页扫码（用户需求 7）：只有用户点了「开始使用」才会走到这里。
+            // 配对页扫码：只有用户点了「开始使用」才会走到这里。
             CaptureBridge.handleCameraPermissionResult(granted)
         }
     }

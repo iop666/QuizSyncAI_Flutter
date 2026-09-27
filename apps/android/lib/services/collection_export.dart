@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:quizsync_core/quizsync_core.dart';
 
-/// 合集导出结果（用户需求 9）。
+/// 合集导出结果。
 class ExportResult {
   final bool ok;
   final String? path;
@@ -21,7 +21,7 @@ class ExportResult {
 
 /// 把一组识别记录导出成一个易读的 Markdown 文件。
 ///
-/// - **按识别顺序排序**（`createdAt` 升序，用户需求 9）；
+/// - **按识别顺序排序**（`createdAt` 升序）；
 /// - 每条的页数一并写进文件（多页识别的「页数：N」）；
 /// - 落盘位置由调用方给（真机用应用文档目录），失败返回 error 交给 UI 弹提示。
 Future<ExportResult> exportSessions({

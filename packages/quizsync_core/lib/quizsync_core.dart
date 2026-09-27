@@ -34,7 +34,7 @@ export 'sync/lww_applier.dart';
 export 'sync/sync_engine.dart';
 export 'sync/sync_op_writer.dart';
 
-// ---- AI 客户端与解析（M2）----
+// ---- AI 客户端与解析----
 export 'ai/analysis_cache.dart';
 export 'ai/analysis_engine.dart';
 export 'ai/fake_provider.dart';
@@ -54,7 +54,7 @@ export 'db/open.dart';
 export 'db/repository.dart';
 export 'db/tables.dart';
 
-// ---- 局域网服务端与客户端（M4）----
+// ---- 局域网服务端与客户端----
 export 'server/image_store.dart';
 export 'server/task_executor.dart';
 export 'server/quizsync_server.dart';

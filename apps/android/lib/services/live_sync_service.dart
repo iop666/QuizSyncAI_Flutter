@@ -9,7 +9,7 @@ import '../state/app_state.dart';
 typedef SyncSocketFactory = SyncSocket Function(
     PairingInfo pairing, String deviceId);
 
-/// WS 长连接生命周期（用户需求 7：主机开始识别后自动加载）。
+/// WS 长连接生命周期。
 ///
 /// 只做「连上 / 断了重连 / 把消息转给 LiveUpdates」，
 /// 消息语义与本地库写入都在 [LiveUpdates]（可单测）。
@@ -24,7 +24,7 @@ class LiveSyncService {
   final AndroidAppState app;
   final Future<void> Function(Map<String, dynamic> message) onMessage;
 
-  /// 每次**连上**（首次连上也算）时回调（M14 第 6 条）。
+  /// 每次**连上**（首次连上也算）时回调。
   ///
   /// `SyncSocket` 的重连只保证「连接恢复」，断线窗口里主机推过来的
   /// `task_update` / `task_result` 不会重发，必须由宿主补拉一次，

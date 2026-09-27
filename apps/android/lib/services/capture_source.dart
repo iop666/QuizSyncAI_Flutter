@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-/// 采集源抽象（M5 任务 7）：Dart 层不接触 MediaProjection API。
+/// 采集源抽象：Dart 层不接触 MediaProjection API。
 abstract class CaptureSource {
   /// JPEG 字节；null = 不可用（需授权 / 会话失效）。
   Future<Uint8List?> capture();
@@ -129,12 +129,12 @@ class CaptureBridgeCalls {
   static Future<void> setCaptureMode(String mode) =>
       _tryInvoke('setCaptureMode', {'mode': mode});
 
-  /// 多页模式状态（用户需求 11）：推给原生悬浮球换色/换提示，
+  /// 多页模式状态：推给原生悬浮球换色/换提示，
   /// **业务判断仍在 Dart**，这里只是让球能显示「正在收集第 N 页」。
   static Future<void> setBallMode({required bool active, required int pages}) =>
       _tryInvoke('setBallMode', {'active': active, 'pages': pages});
 
-  /// 悬浮球外观（用户需求 11）：alpha 0.3–1.0，尺寸 dp。
+  /// 悬浮球外观：alpha 0.3–1.0，尺寸 dp。
   static Future<void> setBallAppearance(
           {required double opacity, required double sizeDp}) =>
       _tryInvoke('setBallAppearance', {'opacity': opacity, 'size': sizeDp});
@@ -213,7 +213,7 @@ class CaptureBridgeCalls {
   static Future<void> openBatterySettings() =>
       _tryInvoke('openBatterySettings');
 
-  /// 请求相机权限（配对页扫码用，用户需求 7）：**点击「开始使用」后**才调用，
+  /// 请求相机权限（配对页扫码用）：**点击「开始使用」后**才调用，
   /// 保证首次进入配对页不会自动调起相机。
   /// 平台侧未就绪（测试 / 非 Android）时返回 false，由调用方给明确提示。
   static Future<bool> requestCameraPermission() async {

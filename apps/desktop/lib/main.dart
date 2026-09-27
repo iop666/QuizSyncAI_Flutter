@@ -84,7 +84,7 @@ void _enforceSingleInstance() {
 
 // 热键的候选键、键位映射与标签逻辑都在 services/hotkeys.dart（可单测）。
 
-/// 应用数据目录解析（用户反馈 10）：**默认放在应用所在目录下**。
+/// 应用数据目录解析：**默认放在应用所在目录下**。
 ///
 /// 便携版最直观的语义是「整个文件夹拷走 = 数据一起走」，所以优先用
 /// `<exe 所在目录>\userdata`；但如果安装到 `Program Files` 这类只读位置
@@ -192,14 +192,14 @@ Future<String?> _supportDataDir() async {
 
 /// 100% 缩放时的基准窗口尺寸（与启动时的 `WindowOptions` 一致）。
 ///
-/// 用户反馈 8：缩放后窗口边界要能真的"跟住内容"。启动时如果存的是非 100%
+/// 缩放后窗口边界要能真的"跟住内容"。启动时如果存的是非 100%
 /// 的缩放，就把窗口按这个基准 × 缩放比摆好，避免"界面小了、边框还是原来那么大"
 /// 留出一大片画布（深色主题下就是一片黑）。
 const Size kBaseWindowSize = Size(1180, 760);
 
 /// 100% 缩放时的窗口最小尺寸（与启动时的 `WindowOptions.minimumSize` 一致）。
 ///
-/// 用户反馈 8：最小尺寸也要跟着缩放走。否则缩到 50% 时窗口被卡在 860×520，
+/// 最小尺寸也要跟着缩放走。否则缩到 50% 时窗口被卡在 860×520，
 /// 界面只剩一半大小、剩下全是画布色（深色下就是一片黑）——看起来就是
 /// 「边框没有跟着内容缩放」。
 const Size kBaseMinimumWindowSize = Size(860, 520);
@@ -212,13 +212,13 @@ Future<void> _applyScaledMinimumSize(
   await windowManager.setMinimumSize(Size(minW, minH));
 }
 
-/// 界面缩放变化后按同比例调整**窗口边界**（用户反馈 7/8）。
+/// 界面缩放变化后按同比例调整**窗口边界**。
 ///
 /// 缩放是「虚拟画布 + 整体放大」实现的：100% 时的窗口装 1180×760 逻辑像素，
 /// 200% 时同样一块窗口只剩 590×380 逻辑像素，界面会显得挤。所以这里在缩放
 /// 比例变化时把窗口物理尺寸乘以同一个比例，再夹到当前显示器工作区内。
 ///
-/// 用户反馈 8 的三处修正：
+/// 缩放时要处理的三处细节：
 ///  1. **窗口最大化时 `setBounds` 会被系统忽略**（用户看到"边框完全没动"），
 ///     所以先 `unmaximize`；
 ///  2. **最小尺寸也要按比例缩放** —— 原来缩到 50% 时窗口被 860×520 的最小
@@ -286,9 +286,7 @@ Future<void> applyStoredUiScaleToWindow(double scale) async {
 
 /// 手机（安卓）发起识别时的窗口动作。
 ///
-/// 用户反馈 12 原来是「把主窗口带到前台、回到主界面、跳到这次识别」；
-/// **M44 第 5 条改成静默**（用户原话：「在手机端进行识别时，windows 端应用修改为
-/// 静默不弹出」）：手机在搜题时 Windows 端**不弹窗、不抢焦点**。
+/// 手机在搜题时 Windows 端**不弹窗、不抢焦点**（静默处理）；
 /// 只有主窗口**本来就在前台**（用户正看着它）时才顺手回到识别界面；
 /// 在托盘 / 后台时完全不动窗口，结果照样落库，用户下次打开就能看到。
 Future<void> _onRemoteTaskStarted(String sessionId) async {
@@ -309,7 +307,7 @@ Future<void> main() async {
   final dataDir = await resolveDataDir();
   final imageDir = '$dataDir/images';
 
-  // M12：日志落盘（`<数据目录>/logs/app.log`）。用户报障时「导出日志」一旦
+  // 日志落盘（`<数据目录>/logs/app.log`）。用户报障时「导出日志」一旦
   // 本身失败就什么都拿不到，所以启动即挂文件 sink，写失败静默退回内存日志。
   AppLogger.instance.attachFile('$dataDir/logs/app.log');
   AppLogger.instance.info('app', '启动：数据目录 $dataDir');
@@ -324,9 +322,9 @@ Future<void> main() async {
 
   final settings = SettingsController(DriftKeyValueStore(repo));
   await settings.load();
-  // 用户需求 8：「每次打开都要选择合集」。启动时清空「当前选中」，只把上次用
+  // 「每次打开都要选择合集」。启动时清空「当前选中」，只把上次用
   // 的合集记下来给选择页标「上次使用」——否则热键/剪贴板会在用户还没选之前
-  // 就把新记录写进上次的合集，手机端也会看到一个陈旧的选中项（用户需求 12）。
+  // 就把新记录写进上次的合集，手机端也会看到一个陈旧的选中项。
   final lastCollectionId = await repo.getSetting(kActiveCollectionKey);
   if (lastCollectionId != null && lastCollectionId.isNotEmpty) {
     await repo.setSetting(kLastCollectionKey, lastCollectionId);
@@ -343,15 +341,15 @@ Future<void> main() async {
     () async {
       await windowManager.show();
       await windowManager.focus();
-      // 用户反馈 8：上次用的是非 100% 缩放时，窗口要按同样比例摆好，
+      // 上次用的是非 100% 缩放时，窗口要按同样比例摆好，
       // 否则界面范围与窗口边界对不上（深色主题下右边/下面就是一片黑）。
       await applyStoredUiScaleToWindow(settings.app.uiScale);
     },
   );
 
-  // M4：内置服务端随应用启动（端口来自设置；占用自动探测 +1）。
+  // 内置服务端随应用启动（端口来自设置；占用自动探测 +1）。
   //
-  // M32 用户需求 3：「连接设备」默认关闭，只有用户打开开关后才启动服务
+  //  「连接设备」默认关闭，只有用户打开开关后才启动服务
   // （启动监听会触发 Windows 防火墙授权弹窗，也就是需求里的「获取网络权限」）。
   final serverController = DesktopServerController();
   Future<String?> keyReader() => secureStore.read('ai_api_key');
@@ -366,7 +364,7 @@ Future<void> main() async {
         keyReader: keyReader,
         imageDir: imageDir,
         preferredPort: settings.app.listenPort,
-        // 用户反馈 12 + M44 第 5 条：手机发起的识别 → 只更新**全局状态信号**，
+        // 手机发起的识别 → 只更新**全局状态信号**，
         // 由外壳（`_DesktopShell`）转发给悬浮窗，并在窗口本来就是前台时才切界面。
         onTaskUpdate: (status, sessionId) {
           remoteTaskState.value = RemoteTaskSignal(status, sessionId);
@@ -401,7 +399,7 @@ Future<void> main() async {
       settingsProvider.overrideWith((ref) => settings),
       serverControllerProvider.overrideWithValue(serverController),
       connectToggleProvider.overrideWithValue(setConnectEnabled),
-      // 不恢复上次的选中项：用户需求 8 要求每次打开都重新选一次合集。
+      // 不恢复上次的选中项：每次打开都要重新选一次合集。
       activeCollectionIdProvider.overrideWith((ref) => null),
       apiKeyReaderProvider.overrideWithValue(keyReader),
       dataRootProvider.overrideWithValue(dataDir),
@@ -422,7 +420,7 @@ Future<void> main() async {
 class _DesktopShell extends ConsumerStatefulWidget {
   final String imageDir;
 
-  /// 「连接设备」开关真正的启停（M32 用户需求 3）。
+  /// 「连接设备」开关真正的启停。
   final Future<void> Function(bool) connectToggle;
 
   const _DesktopShell({required this.imageDir, required this.connectToggle});
@@ -436,11 +434,11 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
   final HotkeyService _hotkey = HotkeyService();
   Timer? _hotkeyReloadTimer;
 
-  /// Windows 悬浮球（用户反馈 11）。
+  /// Windows 悬浮球。
   late final FloatingBall _ball;
   bool _ballStarted = false;
 
-  /// Windows 悬浮窗（M32 用户需求 1）。
+  /// Windows 悬浮窗。
   late final FloatWindow _floatWindow;
   late final FloatWindowPresenter _floatPresenter;
   bool _floatStarted = false;
@@ -475,7 +473,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
       onMoveEnd: (x, y) => unawaited(_floatPresenter.onMoveEnd(x, y)),
       onHover: (id) => _floatPresenter.setHovered(id),
       onScroll: (n) => unawaited(_floatPresenter.scrollBy(n)),
-      // M42：极简模式的文本拖选与右键复制（窗口是 WS_EX_NOACTIVATE，
+      // 极简模式的文本拖选与右键复制（窗口是 WS_EX_NOACTIVATE，
       // 拿不到键盘消息，所以复制选区的入口挂在右键上）。
       //
       // ⚠ 必须包一层 lambda：直接写 `_floatPresenter.onSelectBegin` 会在**这一句**
@@ -500,9 +498,9 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     _setupHotkey().then((_) => _setupTray());
     _syncClipboard();
     _applyWindowTheme();
-    // 暂存页数变化时刷新托盘提示（用户反馈 5/12：后台静默攒页，托盘是唯一提示）。
+    // 暂存页数变化时刷新托盘提示。
     coordinator.stagingListeners.add(_setupTray);
-    // 悬浮球跟着「攒了几页 / 是否正在识别」换状态图（用户反馈 11）。
+    // 悬浮球跟着「攒了几页 / 是否正在识别」换状态图。
     coordinator.stagingListeners.add(_syncBallState);
     coordinator.busyListeners.add(_syncBallState);
     // 悬浮窗也要跟着这两件事变：多页模式换底部按钮组、识别中显示最上层浮层。
@@ -513,7 +511,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
       if (!next.hasValue) return;
       _floatPresenter.setSessions(next.requireValue);
     });
-    // 手机（安卓）发起的任务状态（M44 第 5 条）：悬浮窗要跟着显示「手机正在识别…」
+    // 手机（安卓）发起的任务状态：悬浮窗要跟着显示「手机正在识别…」
     // 并在识别完成时跳到新结果；服务端在 `main()` 里写这个全局信号。
     remoteTaskState.addListener(_onRemoteTaskStateChanged);
     // 监听是后挂的：先补一次当前值，别丢掉挂载之前就发生的那次任务。
@@ -523,7 +521,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
         (prev, next) => _syncClipboard());
     // 悬浮球设置变化 → 立刻作用到窗口上（开关 / 大小 / 透明度 / 描边）。
     //
-    // 用户反馈 M15 第 1 条（大小 / 透明度 / 描边 / 开关「全都调不动」）：
+    // 此前出现过悬浮球的大小 / 透明度 / 描边 / 开关「全都调不动」的问题：
     // 这里原来是 `ref.listenManual(settingsProvider, (prev, next) { ... })`，
     // 而 `settingsProvider` 是 `ChangeNotifierProvider`，它的**值就是那个 controller
     // 实例本身** —— 通知到达时 `prev` 与 `next` 是同一个对象，两边读到的都是
@@ -538,7 +536,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
       },
     );
     // 悬浮窗设置变化 → 立刻作用到窗口上（开关 / 置顶 / 透明度 / 比例 / 字号 /
-    // 锁定 / 拉伸 / 明暗 / 极简 / 归位）。同样必须走 `select`（M15 第 1 条的坑）。
+    // 锁定 / 拉伸 / 明暗 / 极简 / 归位）。同样必须走 `select`（这里踩过坑）。
     ref.listenManual(
       settingsProvider.select((s) => floatWindowSignature(s.app)),
       (prev, next) {
@@ -546,16 +544,16 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
         unawaited(_applyFloatWindowSettings());
       },
     );
-    // 「连接设备」开关变化 → 真正启停局域网服务（M32 用户需求 3）。
+    // 「连接设备」开关变化 → 真正启停局域网服务。
     ref.listenManual(settingsProvider.select((s) => s.app.connectEnabled),
         (prev, next) {
       if (prev == null || prev == next) return;
       unawaited(widget.connectToggle(next));
     });
-    // 主题三态变化 → Windows 标题栏深浅跟着变（用户反馈 7）。
+    // 主题三态变化 → Windows 标题栏深浅跟着变。
     ref.listenManual(settingsProvider.select((s) => s.app.theme),
         (prev, next) => _applyWindowTheme());
-    // 界面缩放变化 → 窗口边界按同比例调整（用户反馈 7/8）。
+    // 界面缩放变化 → 窗口边界按同比例调整。
     ref.listenManual(settingsProvider.select((s) => s.app.uiScale),
         (prev, next) {
       if (prev == null || prev == next) return;
@@ -564,11 +562,11 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     });
     // 设置页改任意一个热键 → 防抖后重新注册（录制时按键会连发多次回调）。
     //
-    // 修（用户反馈 14）：原来只监听「截图识别」那一个 `hotkeyJson`，
+    // 修：原来只监听「截图识别」那一个 `hotkeyJson`，
     // 改「添加页面 / 结束多页识别」两个热键时**根本不会重新注册** ——
     // 表现就是「多页热键设置了不生效」，用户以为没保存成功。
     //
-    // 修（M15）：这里原来也是直接 listen 整个 provider，`prev/next` 是同一个
+    // 修：这里原来也是直接 listen 整个 provider，`prev/next` 是同一个
     // controller 实例，签名比较永远相等 → 改热键同样不会重新注册。改走 `select`。
     ref.listenManual(
       settingsProvider.select((s) => hotkeySettingsSignature(s.app)),
@@ -584,13 +582,13 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     ref.listenManual(hotkeyReloadProvider, (prev, next) {
       _setupHotkey().then((_) => _setupTray());
     });
-    // 用户反馈 5 + M31：进热键设置页时**不再注销**全局热键，改成「触发时丢弃」。
+    // 进热键设置页时**不再注销**全局热键，改成「触发时丢弃」。
     //
-    // M30 的做法（进页 `unregister()`、离页重注册）在「页面没被卸载」时会把热键
+    //  的做法（进页 `unregister()`、离页重注册）在「页面没被卸载」时会把热键
     // **永久**锁死 —— 窗口收进托盘 / 最小化时页面不会 dispose，标志一直是 true，
-    // 而 M30 又让暂停期间跳过重新注册，于是用户在**任何地方**按都没反应（实测）。
+    // 而  又让暂停期间跳过重新注册，于是用户在**任何地方**按都没反应（实测）。
     // 现在注册始终有效，只在触发那一刻看「本页是不是正在前台」；这里只留一条日志，
-    // 让「为什么按了没反应」在日志里看得见（M30 的教训）。
+    // 让「为什么按了没反应」在日志里看得见。
     ref.listenManual(hotkeysSuspendedProvider, (prev, next) {
       AppLogger.instance.info(
           'hotkey',
@@ -627,7 +625,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
   @override
   void didChangePlatformBrightness() => _applyWindowTheme();
 
-  /// 窗口标题栏跟随应用主题（用户反馈 7 + 本轮「Windows 也没改」）。
+  /// 窗口标题栏跟随应用主题。
   ///
   /// 注意不能用 `windowManager.setBrightness`：它在 Windows 端把「应用要深色」
   /// 和「系统当前是深色」做了 AND（见 `services/window_theme.dart` 的注释），
@@ -675,7 +673,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     await trayManager.setToolTip(tip);
     final app = ref.read(settingsProvider).app;
     await trayManager.setContextMenu(Menu(items: [
-      // M46 第 1 条：托盘上的「截屏识别」在攒着页时就是**结束多页**，
+      // 托盘上的「截屏识别」在攒着页时就是**结束多页**，
       // 菜单文字跟着状态走，用户一眼知道这一下会发生什么。
       MenuItem(
           key: 'capture',
@@ -692,7 +690,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
           label: '清空多页暂存区（${coordinator.stagedCount} 页）'),
       MenuItem(key: 'clipboard', label: '从剪贴板读取'),
       MenuItem.separator(),
-      // M32 用户需求 4 + M33 第 2 条：托盘右键菜单里的两个浮层开关，
+      // 托盘右键菜单里的两个浮层开关，
       // **文字跟着状态变**（显示 xxx / 隐藏 xxx）并且**每次状态变化都重建菜单**
       // —— 否则点了开关菜单上的字还是旧的（用户报的就是这个）。
       // 必须用 `MenuItem.checkbox`：tray_manager 只有 `type == 'checkbox'` 时
@@ -715,7 +713,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     hotkeyTrace('tray menu set ok');
   }
 
-  /// 托盘图标（用户反馈 8）：用 `icon/Statusbar.png` 生成的 `assets/statusbar.ico`，
+  /// 托盘图标：用 `icon/Statusbar.png` 生成的 `assets/statusbar.ico`，
   /// 与应用程序图标区分开。
   ///
   /// tray_manager 的 Windows 实现是 `LoadImage(..., LR_LOADFROMFILE)`：路径按
@@ -735,7 +733,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     return path;
   }
 
-  /// 注册全部槽位（M46 第 1 条：**只有两个**热键，默认 F8 / F9）。
+  /// 注册全部槽位（**只有两个**热键，默认 F8 / F9）。
   ///
   /// 自定义键支持物理键，失败时给出明确原因而不是静默回退。
   Future<void> _setupHotkey() async {
@@ -756,7 +754,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     addCustom(HotkeySlot.capture, app.hotkeyJson);
     addCustom(HotkeySlot.multipage, app.multipageHotkeyJson);
 
-    // 触发时先写一行日志（M46）：用户报「按了没反应」时，日志必须能回答
+    // 触发时先写一行日志：用户报「按了没反应」时，日志必须能回答
     // 「到底有没有收到这个键、收到的是哪一个」——Server 一直这么做。
     void Function() fire(HotkeySlot slot, void Function() action) => () {
           hotkeyTrace('热键触发：${slot.title}（${_hotkey.activeLabel(slot.name) ?? '未注册'}）');
@@ -776,7 +774,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
       },
       custom: requests,
       log: log,
-      // M31：注册**永远**执行；「热键设置页正在前台」这种情形在触发那一刻才判断，
+      // 注册**永远**执行；「热键设置页正在前台」这种情形在触发那一刻才判断，
       // 所以状态永远是真实的，页面显示的键也就是真正注册着的键。
       blocked: _hotkeyBlocked,
       onBlocked: (m) => AppLogger.instance.info('hotkey', m),
@@ -796,10 +794,10 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     }
   }
 
-  /// 热键触发要不要吞掉（M31）：**热键设置页挂载着**且**本窗口是前台窗口**。
+  /// 热键触发要不要吞掉：**热键设置页挂载着**且**本窗口是前台窗口**。
   ///
   /// 两个条件缺一不可：
-  /// - 页面没挂载 → 用户已经在别处，热键必须照常工作（M30 就是在这里锁死的）；
+  /// - 页面没挂载 → 用户已经在别处，热键必须照常工作（ 就是在这里锁死的）；
   /// - 本窗口不是前台 → 用户在别的程序 / 窗口收进了托盘或最小化了，
   ///   按热键必须照常截屏（这正是这个工具的主用法）。
   bool _hotkeyBlocked() =>
@@ -811,7 +809,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
   }
 
   // ------------------------------------------------------------------
-  // Windows 悬浮球（用户反馈 11）
+  // Windows 悬浮球
   // ------------------------------------------------------------------
 
   /// 外观设置的指纹：只有这些字段变了才需要重画悬浮球。
@@ -820,13 +818,13 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
   /// 与安卓端一致的点击语义（Dart 侧决定，原生只上报手势）：
   /// 已经攒了页 → 单击 = 结束多页并识别；否则 = 单图识别。长按 = 继续攒页。
   ///
-  /// M46 第 1 条：单击与「截屏识别」热键完全同义（`captureAndAnalyze` 自己会判
+  /// 单击与「截屏识别」热键完全同义（`captureAndAnalyze` 自己会判
   /// 攒页状态），不再需要在这里分叉。
   void _onBallTap() => unawaited(coordinator.captureAndAnalyze());
 
   void _onBallLongPress() => unawaited(coordinator.multipageCapture());
 
-  /// 手机任务状态信号 → 悬浮窗（M44 第 5 条）。
+  /// 手机任务状态信号 → 悬浮窗。
   ///
   /// 手机端搜题时悬浮窗要显示「手机正在识别…」，识别完跳到新结果；以前悬浮窗
   /// 完全不知道手机那边发生了什么（用户报「悬浮窗不会同步状态与跳转新界面」）。
@@ -860,12 +858,12 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     } else {
       _ball.hide();
     }
-    // M33 第 2 条：托盘菜单的文字/勾选要跟着状态走（设置页改了也要刷新）。
+    // 托盘菜单的文字/勾选要跟着状态走（设置页改了也要刷新）。
     await _setupTray();
   }
 
   // ------------------------------------------------------------------
-  // Windows 悬浮窗（M32 用户需求 1）
+  // Windows 悬浮窗
   // ------------------------------------------------------------------
 
   /// 应用现在的明暗（悬浮窗选「跟随软件设置」时用它）。
@@ -898,10 +896,10 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     }
   }
 
-  /// 悬浮窗开 / 关 / 换外观（用户需求 1.12：默认关闭，打开后记住状态）。
+  /// 悬浮窗开 / 关 / 换外观。
   Future<void> _applyFloatWindowSettings() async {
     final app = ref.read(settingsProvider).app;
-    // M33 第 2 条：托盘菜单的文字/勾选要跟着状态走。
+    // 托盘菜单的文字/勾选要跟着状态走。
     await _setupTray();
     if (!app.floatWindowEnabled) {
       _floatPresenter.hide();
@@ -922,7 +920,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
 
   /// 托盘 / 设置页都用的「切换悬浮球开关」。
   ///
-  /// 切完立刻重建托盘菜单：M33 第 2 条要求菜单文字/勾选**跟着状态变**，
+  /// 切完立刻重建托盘菜单：菜单文字/勾选要**跟着状态变**，
   /// 而 tray_manager 不会自动刷新，必须重新 `setContextMenu`。
   Future<void> _toggleBall(bool value) async {
     final app = ref.read(settingsProvider).app;
@@ -1005,7 +1003,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
     }
   }
 
-  /// 托盘「切换任务合集」（用户需求 8）。
+  /// 托盘「切换任务合集」。
   Future<void> _openCollectionPicker() async {
     final ctx = _navigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
@@ -1021,7 +1019,7 @@ class _DesktopShellState extends ConsumerState<_DesktopShell>
         if (mounted) unawaited(_applyBallSettings());
       });
     }
-    // 悬浮窗同理（用户需求 1.12：默认关闭，所以打开开关才会真的建窗口）。
+    // 悬浮窗同理。
     if (!_floatStarted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

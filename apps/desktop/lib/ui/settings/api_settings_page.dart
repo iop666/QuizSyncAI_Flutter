@@ -6,12 +6,12 @@ import '../../services/shell_open.dart';
 import '../../state/app_scope.dart';
 import '../privacy_dialog.dart';
 
-/// API 配置（M9）：AI 服务、API Key、模型与调用限制。
+/// API 配置：AI 服务、API Key、模型与调用限制。
 /// 原来的「AI 服务」整块搬到这里，功能与落库逻辑完全不变。
 class ApiSettingsPage extends ConsumerStatefulWidget {
   const ApiSettingsPage({super.key});
 
-  /// DeepSeek 开放平台的 Key 申请页（M17 第 6 条：把推荐地址写在 API Key 下面）。
+  /// DeepSeek 开放平台的 Key 申请页（把推荐地址写在 API Key 下面）。
   static const String deepSeekKeysUrl =
       'https://platform.deepseek.com/api_keys';
 
@@ -62,7 +62,7 @@ class _ApiSettingsPageState extends ConsumerState<ApiSettingsPage> {
 
   /// 保存 API Key（点保存按钮或在该输入框内按回车触发）。
   ///
-  /// M34 第 1 条：**隐私告知只在「首次保存 API Key」时提示一次**。
+  /// **隐私告知只在「首次保存 API Key」时提示一次**。
   /// 识别流程里不再弹它（那时用户已经在别的应用里，弹窗既打断又容易被忽略）；
   /// 「暂不使用」= 不保存这个 Key，用户看到告知后可以再决定。
   Future<void> _saveKey() async {
@@ -188,7 +188,7 @@ class _ApiSettingsPageState extends ConsumerState<ApiSettingsPage> {
                 onFieldSubmitted: (_) => _saveKey(),
               ),
             ),
-            // M17 第 6 条（用户要求）：API Key 这一项下面直接给出去哪儿申请。
+            // API Key 这一项下面直接给出去哪儿申请。
             SettingsRow(
               key: const ValueKey('settings-api-key-recommend'),
               title: '推荐用 DeepSeek 的 API',
@@ -267,7 +267,7 @@ class _ApiSettingsPageState extends ConsumerState<ApiSettingsPage> {
                       initialValue: ai.dailyLimit,
                       decoration: InputDecoration(
                           suffixText: ai.dailyLimit <= 0 ? null : '次'),
-                      // M44 第 2 条（用户要求）：可以「不设上限」（存 0）。
+                      // 可以「不设上限」（存 0）。
                       items: const [0, 50, 100, 200, 500, 1000]
                           .map((v) => DropdownMenuItem(
                               value: v,

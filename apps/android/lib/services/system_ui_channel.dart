@@ -1,12 +1,12 @@
 import 'package:flutter/services.dart';
 
-/// 系统栏外观桥（M13）：把「底色 + 图标明暗」直接交给自己的 Kotlin 实现
+/// 系统栏外观桥：把「底色 + 图标明暗」直接交给自己的 Kotlin 实现
 /// （`MainActivity` → `SystemUiBridge`）。
 ///
-/// 为什么不能只靠 `SystemChrome.setSystemUIOverlayStyle`：反编译本机引擎产物
-/// （`flutter.jar` → `io.flutter.plugin.platform.PlatformPlugin`）可见
+/// 为什么不能只靠 `SystemChrome.setSystemUIOverlayStyle`：引擎的
+/// `io.flutter.plugin.platform.PlatformPlugin` 里可见
 /// `if (Build.VERSION.SDK_INT >= 35) 跳过 window.setStatusBarColor` ——
-/// **Android 15 及以上引擎根本不设状态栏底色**，M10/M11 的「显式配色」在那类
+/// **Android 15 及以上引擎根本不设状态栏底色**，「显式配色」在那类
 /// 机器上必然无效（用户看到的始终是启动窗口主题的默认底色）。
 ///
 /// 这一层只做「把颜色和明暗搬到原生窗口」这一件事，不含任何业务逻辑；

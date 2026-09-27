@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:quizsync_core/quizsync_core.dart';
 
-/// 主机（Windows 内置服务端）网关接口（用户需求 12）。
+/// 主机（Windows 内置服务端）网关接口。
 ///
 /// 页面只依赖这个接口，不直接 new [ApiClient]：
 /// - 真机走 [ApiHostGateway]（dio + 局域网 HTTP）；
@@ -27,7 +27,7 @@ abstract class HostGateway {
 
   Future<TaskStatusView> getTask(String taskId);
 
-  /// 「重新生成」（用户需求 7）。
+  /// 「重新生成」。
   Future<TaskStatusView> reanalyze(String sessionId);
 
   /// 主机当前选中的合集；连不上时抛 [ApiClientException]。
@@ -86,6 +86,6 @@ class ApiHostGateway implements HostGateway {
   }
 }
 
-/// 未选合集时统一的用户文案（用户需求 12）：主机的 409 也归到这一句，
+/// 未选合集时统一的用户文案：主机的 409 也归到这一句，
 /// 避免「静默失败」或直接抛出一句英文协议错误。
 const String kNoActiveCollectionMessage = '请先在电脑上选择任务合集';

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:drift/drift.dart' show Value;
 import 'package:quizsync_core/quizsync_core.dart';
 
-/// 一页待分析的图片（用户需求 4：多页题目一次识别）。
+/// 一页待分析的图片。
 class WorkflowPage {
   final Uint8List jpeg;
   final int width;
@@ -18,7 +18,7 @@ class WorkflowPage {
   });
 }
 
-/// 桌面端单机分析工作流（M3 任务 6）：
+/// 桌面端单机分析工作流：
 /// 入库 → 建任务 → 调 AI（AnalysisEngine）→ 解析 → 写题目 → 生成 sync_ops。
 /// 完全平台无关：单测用内存库 + FakeAiProvider 驱动整条链路。
 class AnalysisWorkflow {
@@ -32,7 +32,7 @@ class AnalysisWorkflow {
   /// 读取本机已保存的图片（多页会话「重新分析」时取回历史页）。
   Future<Uint8List?> Function(String hash)? readImageFile;
 
-  /// 本地识别**开始**（用户反馈 2）：手机端据此显示「N 张图片识别中…」。
+  /// 本地识别**开始**：手机端据此显示「N 张图片识别中…」。
   void Function(String sessionId, int imageCount)? onSessionStarted;
 
   /// 本地识别**结束**：ok=true 表示已出结果（手机端会自动加载并显示）。
@@ -68,7 +68,7 @@ class AnalysisWorkflow {
         force: force,
       );
 
-  /// 多页入口（用户需求 4）：1..N 页图片作为**一次识别**提交。
+  /// 多页入口：1..N 页图片作为**一次识别**提交。
   Future<WorkflowResult> runMulti({
     required List<WorkflowPage> pages,
     required AiConfig config,
@@ -90,7 +90,7 @@ class AnalysisWorkflow {
     final hashes = pages.map((p) => p.hash).toList();
     final first = pages.first;
 
-    // 归属合集（用户需求 8）：显式传入优先，否则取当前选中的合集。
+    // 归属合集：显式传入优先，否则取当前选中的合集。
     final collection = (collectionId != null && collectionId.isNotEmpty)
         ? collectionId
         : await repo.getSetting(kActiveCollectionKey);

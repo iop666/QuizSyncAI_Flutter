@@ -21,13 +21,13 @@ class CaptureResult {
         sessionId = null;
 }
 
-/// 采集控制器（M5 / 用户需求 3、4、11、12）：
+/// 采集控制器：
 /// 悬浮球手势 → 截屏 → 上传分析 → 后台静默收尾（发通知 + 更新当前任务页）。
 ///
 /// 手势语义（Kotlin 只上报「短按 / 长按」，模式判断在 Dart）：
 /// - 短按（非多页）：单图识别；
 /// - 长按：进入并累加多页（每页立即上传），到上限自动提交；
-/// - 短按（多页中）：只提交已截取的页并退出多页模式（M49 起不再补截一页）。
+/// - 短按（多页中）：只提交已截取的页并退出多页模式（ 起不再补截一页）。
 class AndroidCaptureController {
   final AndroidAppState app;
   final CaptureSource captureSource;
@@ -39,7 +39,7 @@ class AndroidCaptureController {
 
   /// 任务已提交给主机（宿主据此显示「N 张图片识别中…」）。
   ///
-  /// 用户需求 3：识别全程静默——这里**不再**有「拉起主界面 / 跳识别中页」的
+  /// 识别全程静默——这里**不再**有「拉起主界面 / 跳识别中页」的
   /// 回调，采集与上传在后台完成，「当前任务」页与通知栏自然更新。
   void Function({required int imageCount, String? sessionId})? onTaskSubmitted;
 
@@ -111,7 +111,7 @@ class AndroidCaptureController {
   }
 
   // ------------------------------------------------------------
-  // 手势入口（用户需求 11）
+  // 手势入口
   // ------------------------------------------------------------
 
   /// 短按：非多页模式 = 单图识别；多页模式 = 结束并识别已截取的页。
@@ -157,7 +157,7 @@ class AndroidCaptureController {
     }
   }
 
-  /// 开始多页前的准备：配对 + 主机必须已选合集（用户需求 12）。
+  /// 开始多页前的准备：配对 + 主机必须已选合集。
   /// 返回非 null 表示被拦下（调用方直接把它当结果返回）。
   Future<CaptureResult?> _prepareMultiPage() async {
     final info = await app.loadPairing();
@@ -194,7 +194,7 @@ class AndroidCaptureController {
     }
     final api = ApiClient(baseUrl: info.httpBase, token: info.token);
 
-    // 用户需求 12：发起识别前必须确认主机已选合集，否则不上传。
+    // 发起识别前必须确认主机已选合集，否则不上传。
     final probe = await _probeCollection(api);
     if (probe.blocked) {
       _notify(probe.message!);
@@ -240,7 +240,7 @@ class AndroidCaptureController {
         return const CaptureResult.failed('已解除配对，请重新扫码');
       }
       if (isNoActiveCollection(e)) {
-        // 用户需求 12：409 与本地判断同一句文案，不静默失败。
+        // 409 与本地判断同一句文案，不静默失败。
         _notify(kNoActiveCollectionMessage);
         return const CaptureResult.failed(kNoActiveCollectionMessage);
       }
@@ -277,7 +277,7 @@ class AndroidCaptureController {
     return captured.bytes;
   }
 
-  /// 多页模式下上传一页：立即上传（用户需求 11），返回主机 hash。
+  /// 多页模式下上传一页：立即上传，返回主机 hash。
   /// 同时落盘 + 落 images 表，离线补跑时能取到原图。
   Future<String?> _uploadPage(Uint8List jpeg) async {
     final api = _mpApi;
@@ -401,7 +401,7 @@ class AndroidCaptureController {
     }
   }
 
-  /// 发起识别前确认主机已选合集（用户需求 12）。
+  /// 发起识别前确认主机已选合集。
   /// 连不上主机不算「被拦下」——那属于「主机不在线」，由后面的离线队列兜底。
   Future<({bool blocked, String? message, String? collectionId})>
       _probeCollection(ApiClient api) async {
@@ -420,14 +420,14 @@ class AndroidCaptureController {
     }
   }
 
-  /// 成功后的统一收尾：用户在别的应用里时发通知（用户需求 3：
-  /// 不再跳任何界面，前台只靠「当前任务」页自然更新）。
+  /// 成功后的统一收尾：用户在别的应用里时发通知
+  /// （识别全程静默，不跳任何界面，前台只靠「当前任务」页自然更新）。
   Future<void> _afterSuccess(String sessionId) async {
     if (appInBackground) {
       final questions = await app.repo.questionsOfSession(sessionId);
       final title = questions.isEmpty
           ? '识别完成'
-          // 用户需求 3：自绘标题也要用「序号 + 识别到的题号」。
+          // 自绘标题也要用「序号 + 识别到的题号」。
           : '${questions.first.displayTitle} · 答案 ${_answerBrief(questions.first)}';
       await CaptureBridgeCalls.showResultNotification(title, '点击查看结果');
     }
@@ -453,7 +453,7 @@ class AndroidCaptureController {
       );
       return true;
     } on QueueFullException {
-      // M47：队满不是「网络问题」，不能和别的异常一起吞掉 —— 原来调用方一律回
+      // 队满不是「网络问题」，不能和别的异常一起吞掉 —— 原来调用方一律回
       // 「上传失败：<网络错误>」，用户永远看不到「离线队列已满（20）…」这句
       // （相册路径是对的，见 home_page 的 on QueueFullException）。
       rethrow;

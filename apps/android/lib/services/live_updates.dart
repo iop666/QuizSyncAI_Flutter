@@ -3,7 +3,7 @@ import 'package:quizsync_core/quizsync_core.dart';
 import '../state/app_state.dart';
 import 'host_gateway.dart';
 
-/// WS 事件落地 + 通知宿主刷新（用户需求 7）。
+/// WS 事件落地 + 通知宿主刷新。
 ///
 /// 纯逻辑、无平台依赖：单测可以直接喂一条 `task_result` 消息，断言
 /// 「本地库出现这条记录 + 宿主被通知失效缓存」。
@@ -26,7 +26,7 @@ abstract class LiveUpdateSink {
   /// 结果落库（会自动刷新历史列表与结果页）。
   ///
   /// [selfInitiated] = 这条结果对应的是**本机自己发起**的识别（相册选图 /
-  /// 悬浮球）。本机识别全程静默（用户需求 3），结果只更新「当前任务」页，
+  /// 悬浮球）。本机识别全程静默，结果只更新「当前任务」页，
   /// 绝不能因为主机也广播了一次 task_result 就自动跳出结果页。
   void taskResult({
     required String sessionId,
@@ -95,7 +95,7 @@ class LiveUpdates {
     }
   }
 
-  /// 主机 hello：带上当前合集（用户需求 12），安卓据此判断能否发起识别。
+  /// 主机 hello：带上当前合集，安卓据此判断能否发起识别。
   void applyHello(Map<String, dynamic> msg) {
     if (msg.containsKey('active_collection_id') ||
         msg.containsKey('active_collection_name')) {
@@ -119,7 +119,7 @@ class LiveUpdates {
 
   /// `task_update`：主机（含 Windows 本地截屏）广播的任务状态。
   ///
-  /// 页数**优先用消息里的 `image_count`**（用户需求 2）：主机本地截屏起的任务，
+  /// 页数**优先用消息里的 `image_count`**：主机本地截屏起的任务，
   /// 手机本地库里还没有这条会话，查库只会得到 0，界面就会一直显示
   /// 「1 张图片识别中…」。只有主机没带页数时才退回本地库查。
   Future<void> _taskUpdate(Map<String, dynamic> msg) async {
@@ -148,7 +148,7 @@ class LiveUpdates {
   /// task_result 带完整会话与题目：落本地库后由宿主 invalidate provider，
   /// 历史列表与结果页就会自动刷新（用户不再需要手动下拉）。
   ///
-  /// M47：题目落库改走 `applyAnalysisResult`（`data-model.md` 2.3 的落库入口），
+  /// 题目落库改走 `applyAnalysisResult`（`data-model.md` 2.3 的落库入口），
   /// 不再逐个 `upsertQuestion` —— 主机重分析一条**手机端改过答案**的记录时，
   /// 前者会保住 `answer_edited` / `analysis_edited` 的字段，后者会把用户的手改
   /// 直接盖掉（而且本机随后还会把被盖掉的值当成本地改动同步回主机）。
@@ -183,7 +183,7 @@ class LiveUpdates {
       ),
     );
 
-    // 多页页序（用户需求 4）：结果里的 image_hashes 是权威顺序。
+    // 多页页序：结果里的 image_hashes 是权威顺序。
     final rawHashes = map['image_hashes'];
     if (rawHashes is List && rawHashes.isNotEmpty) {
       await app.repo.setSessionImages(
@@ -198,17 +198,17 @@ class LiveUpdates {
           ? session.questionCount
           : questions.length,
       // 主机把**手机自己提交**的任务也广播回来了：靠 source_device 认出来，
-      // 否则本机识别也会自动跳结果页（违反用户需求 3 的「静默识别」）。
+      // 否则本机识别也会自动跳结果页，违背「本机识别保持静默」。
       selfInitiated: session.sourceDevice == app.repo.deviceId,
     );
   }
 }
 
-/// 主机未选合集时的统一处理（用户需求 12）：409 与本地判断走同一句文案。
+/// 主机未选合集时的统一处理：409 与本地判断走同一句文案。
 bool isNoActiveCollection(Object error) =>
     error is ApiClientException && error.code == 'no_active_collection';
 
-/// 任务签名的**唯一**拼法（M17 第 4 条）：`状态|会话 id`（进行中再带页数）。
+/// 任务签名的**唯一**拼法：`状态|会话 id`（进行中再带页数）。
 ///
 /// 主机侧（`HostStatusPoller.signatureOf`）与界面侧（`activeTaskSignature`）
 /// 都用它，于是「主机说的」和「界面显示的」可以直接比字符串 —— 对不上就补发

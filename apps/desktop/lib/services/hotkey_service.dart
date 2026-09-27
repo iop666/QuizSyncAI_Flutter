@@ -35,7 +35,7 @@ class _HotkeyBinding {
 /// 所以：所有热键共用一个 isolate、每个槽位固定 id、每次注册前先
 /// `UnregisterHotKey` 同 id、退出前显式注销全部。
 ///
-/// ## M46 第 1 条：线程号也要钉死（照搬 Server 的做法）
+/// ## 线程号也要钉死（照搬 Server 的做法）
 ///
 /// 「共用一个 isolate ⇒ 线程不再换手」**不成立**：这个 isolate 每 `await` 一次，
 /// VM 就可能把它调度到另一条池线程上（Server 侧的诊断版实测 28 秒里换了
@@ -301,7 +301,7 @@ class HotkeyService implements HotkeyRegistrar {
     if (_disposed || _restoring) return;
     _restoring = true;
     try {
-      // M47：这里原来只清 `_starting`、把 `_slot` 留着 —— 而 `_ensureThread()`
+      // 这里原来只清 `_starting`、把 `_slot` 留着 —— 而 `_ensureThread()`
       // 见 `_slot != null` 就直接返回 true，于是**根本没有重新 spawn**：设置页还
       // 显示「已生效」、日志写着「正在重建」，按键却毫无反应（新线程不存在，命令
       // 写进共享内存没人读，每次注册等满 3 秒后以 err=-1 失败）。
@@ -391,7 +391,7 @@ class HotkeyService implements HotkeyRegistrar {
 
 /// 后台热键线程：注册 + `PeekMessageW` 轮询泵。
 ///
-/// ## 这个函数**绝不能 await**（M46 的关键结论，与 Server 同一套）
+/// ## 这个函数**绝不能 await**（ 的关键结论，与 Server 同一套）
 ///
 /// 只要 `await` 一次，VM 就可能把本 isolate 换到另一条池线程，注册就跟着旧线程
 /// 走了。所以这里是同步循环：`Sleep` + `PeekMessageW`，一次都不让出执行权。

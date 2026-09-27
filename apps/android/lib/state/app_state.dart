@@ -59,7 +59,7 @@ class PairingInfo {
   return (host: host, port: port, code: code, sid: sid);
 }
 
-/// Android 端全局状态（M4）：
+/// Android 端全局状态：
 /// 本地库 + 配对信息 + ApiClient + 离线队列 + 应用设置。
 class AndroidAppState {
   static const _storageKey = 'pairing_info';
@@ -74,8 +74,8 @@ class AndroidAppState {
   static Future<AndroidAppState> create({SecureStore? secureStore}) async {
     final support = await getApplicationSupportDirectory();
     final db = openQuizSyncDb('${support.path}/quizsync.db');
-    // M18 第 4 条：安卓端**不跟随主机的删除合集**（用户明确要求修改 M17 的第 5 条
-    // 「windows 端删除后安卓端不再同步跟着删除」）——主机删掉的合集在手机本地
+    // 安卓端**不跟随主机的删除合集**（Windows 端删除后安卓端不再同步跟着删除）
+    // ——主机删掉的合集在手机本地
     // 保留，历史里那个分组不会消失、下面的记录也不会被打散成「未分类」。
     final repo = CoreRepository(
       db: db,
@@ -122,7 +122,7 @@ class MemorySecureStore implements SecureStore {
   Future<void> delete(String key) async => _map.remove(key);
 }
 
-/// 一次「相册选图 → 上传 → 分析 → 本地入库」的会话结果（M4 主通路）。
+/// 一次「相册选图 → 上传 → 分析 → 本地入库」的会话结果。
 class UploadOutcome {
   final String? sessionId;
   final String? errorCode;
@@ -141,7 +141,7 @@ class UploadOutcome {
 
 /// 上传并等待结果：轮询（2s 间隔，上限 90s，protocol.md 4.1）。
 /// [saveFile] 提供时把字节落盘（离线队列补跑的前提）。
-/// [collectionId] 为本次任务归属的合集（用户需求 8/12；主机未选时服务端 409）。
+/// [collectionId] 为本次任务归属的合集（主机未选时服务端 409）。
 Future<UploadOutcome> uploadAndAnalyze(
   ApiClient api,
   CoreRepository repo,
@@ -175,7 +175,7 @@ Future<UploadOutcome> uploadAndAnalyze(
   return pollTaskUntilDone(api, repo, taskId);
 }
 
-/// 多页识别（用户需求 4）：各页在收集阶段已经上传成功，
+/// 多页识别：各页在收集阶段已经上传成功，
 /// 这里只用它们的 hash 一次创建多页任务，然后等结果。
 Future<UploadOutcome> createMultiPageTaskAndAnalyze(
   ApiClient api,

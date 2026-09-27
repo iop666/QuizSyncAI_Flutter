@@ -1,13 +1,13 @@
-/// 悬浮窗内容区：**文本为主**的题目排版（M34 第 8 条重写）。
+/// 悬浮窗内容区：**文本为主**的题目排版。
 ///
-/// 历史与取舍：
-/// - M32 自己用 `TextPainter` 一行行画题 —— 公式、化学式、表格全退化成纯文本，
+/// 设计取舍：
+/// - `TextPainter` 一行行画题 —— 公式、化学式、表格全退化成纯文本，
 ///   答案区也没有模块区分；
-/// - M33 改成把主界面同一套 `QuestionCard` **离屏渲染成一张位图**
+/// - 也试过把主界面同一套 `QuestionCard` **离屏渲染成一张位图**
 ///   （`PipelineOwner + RenderView + RenderRepaintBoundary → toImage`），格式是
 ///   一致了，但每帧都要跑一整条 widget → 位图管线、还要出/贴一张高图，
-///   实测**悬浮窗明显卡顿**（用户 M34 第 8 条）；
-/// - M34 回到「TextPainter 直画」，但这次把排版结果**按指纹缓存**
+///   实测**悬浮窗明显卡顿**；
+/// - 最终回到「TextPainter 直画」，但把排版结果**按指纹缓存**
 ///   （`FloatNode.painter` 挂住排好的 `TextPainter`），每帧只做画布合成，
 ///   并且给每道题画出**明显的题目轮廓**：圆角卡片 + 题号徽标 + 题型与把握率、
 ///   命中选项标色、答案块/解析块各有底色条 —— 不卡顿也看得出模块。
@@ -33,10 +33,10 @@ class FloatContent {
 
   /// 释放缓存的文本排版。
   ///
-  /// **M35：这里刻意什么都不做。** 原来对每个 `TextPainter` 调 `dispose()`（释放它
+  /// **这里刻意什么都不做。** 原来对每个 `TextPainter` 调 `dispose()`（释放它
   /// 持有的原生 `ui.Paragraph`），但实测「切极简/正常 → 重建内容 → 释放旧 paragraph」
-  /// 这条路径会让进程在 `flutter_windows.dll` 里以 `0xC0000005` 崩掉（用户原话
-  /// 「点击上面按钮来回点就崩溃」，每次都是点完几秒后）。改成交给 Dart GC：
+  /// 这条路径会让进程在 `flutter_windows.dll` 里以 `0xC0000005` 崩掉
+  /// （表现是点击按钮来回切换几秒后崩溃）。改成交给 Dart GC：
   /// 对象不再被引用后由 GC 回收，不再由我们在切换的那一刻显式释放引擎的文本对象。
   /// 配合 [FloatContentBuilder] 的**双份缓存**（正常 / 极简各留一份），来回切换
   /// 不会反复重建，内存也是常数级。
@@ -101,7 +101,7 @@ Question abstractQuestion(Question q) {
   );
 }
 
-/// 极简模式（M42 重写 / M43 成为**默认模式**）：**纯文本面板**，一题一个可拖选的文本块。
+/// 极简模式（ 重写 /  成为**默认模式**）：**纯文本面板**，一题一个可拖选的文本块。
 ///
 /// 用户口径（连问三轮）：
 /// - 「希望极简模式可以变成可选中字符的形式，便于我的选中与复制」；
@@ -113,7 +113,7 @@ Question abstractQuestion(Question q) {
 /// `TextSpan` 树）。一题一个段落是拖选的关键 —— 跨题拖选时按读序把各段拼起来，
 /// 字符下标不会在段间错位。
 ///
-/// M43 第 3 条（用户报「答案题号颜色和背景色高度接近，不明显」）：题号用
+///  第 3 条（用户报「答案题号颜色和背景色高度接近，不明显」）：题号用
 /// [FloatWindowPalette.accentStrong]、答案用 [FloatWindowPalette.answerStrong]，
 /// 两者都保证与窗口底色的对比度 ≥ 4.5:1。
 FloatContent layoutMinimalTextContent(
@@ -125,9 +125,8 @@ FloatContent layoutMinimalTextContent(
   final nodes = <FloatNode>[];
   final pad = 10.0;
   final innerW = width - pad * 2;
-  // M43 第 3 条：面板里**每一种**文字颜色都要与窗口底色拉够对比度
-  // （用户原话「答案题号等颜色和背景色高度接近，不明显」——「等」也包括
-  // 题型/把握率这类次要文字，实测它在浅色下只有 3.9:1）。
+  // 面板里**每一种**文字颜色都要与窗口底色拉够对比度
+  // （答案、题号这类次要文字与背景的对比度必须拉够——浅色下实测只有 3.9:1）。
   final metaArgb = ensureContrast(palette.subtext, palette.background);
   final metaStyle = _bodyStyle(fontSize * 0.8, metaArgb, 400);
   final noStyle = _bodyStyle(fontSize * 0.86, metaArgb, 600);
@@ -146,8 +145,8 @@ FloatContent layoutMinimalTextContent(
       if (q.answerGuessed) 'AI 猜测',
     ].join(' · ');
     final answer = answerTextOf(q);
-    // 答案色 = 主界面那套**标绿**（AI 没把握时标黄）的契约色。M44 第 4 条：用户要求
-    // 「答案颜色改成绿色」—— 不再把它压暗到 4.5:1（浅色下那样几乎看不出绿），
+    // 答案色 = 主界面那套**标绿**（AI 没把握时标黄）的契约色
+    // —— 不再把它压暗到 4.5:1（浅色下那样几乎看不出绿），
     // 只保留 2.9:1 的地板（与主界面一致），所以正常就是 #16A34A / #4ADE80。
     final ansArgb = highlight.needsReview
         ? ensureContrast(
@@ -218,7 +217,7 @@ String answerTextOf(Question q) {
   return matched.join('、');
 }
 
-/// 把**这一次识别的全部内容**排成纯文本（M43 第 2 条：「复制识别内容」）。
+/// 把**这一次识别的全部内容**排成纯文本（「复制识别内容」）。
 ///
 /// 与面板上的极简排版**故意不同**：这里给的是完整内容（全部选项、解析、阅读材料），
 /// 因为用户要的是「能粘到别处去的识别结果」，而不是屏幕上被裁剪过的视图。
@@ -252,7 +251,7 @@ String recognitionTextOf(List<Question> questions) {
 
 /// 题目列表的指纹（内容变了才重新排版）。
 ///
-/// M35：**按题目 id 排序后再拼**。原来按列表顺序拼，数据库每次返回的顺序只要有一点
+/// **按题目 id 排序后再拼**。原来按列表顺序拼，数据库每次返回的顺序只要有一点
 /// 不同，指纹就变 → 明明同一批题也会重新排版（白建一整套引擎文本对象，切换/轮询时
 /// 反复发生）。排序后「内容一样 → 指纹一样」。
 String questionsSignature(List<Question> qs) {
@@ -271,7 +270,7 @@ String questionsSignature(List<Question> qs) {
 
 /// 内容层的缓存 + 入口。**同步**：只做文本排版，不出位图（这就是不卡的原因）。
 ///
-/// M35：缓存从 1 份改成 **2 份**（正常 / 极简各留一份）。用户就是「来回点极简」时
+/// 缓存从 1 份改成 **2 份**（正常 / 极简各留一份）。用户就是「来回点极简」时
 /// 崩的 —— 两份都留着，来回切就不用反复重建排版（既不重复创建引擎文本对象，
 /// 也不会因为我们显式释放它们而触发那个 `0xC0000005`），顺带切换更快。
 class FloatContentBuilder {

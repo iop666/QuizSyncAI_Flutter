@@ -14,18 +14,18 @@ import '../state/providers.dart';
 ///
 /// 允许注入的原因：本机没有安卓设备/模拟器，测试里创建真实相机会失败
 /// （平台通道不可用）。有了这个缝，「首次进入不自动扫码、点击后才启动」
-/// 这条用户需求 7 的流程才能被单测覆盖。
+/// 这条流程才能被单测覆盖。
 typedef ScannerViewBuilder = Widget Function(
     BuildContext context, ValueChanged<String> onDetected);
 
 /// 配对页（SPEC 3.4 / protocol.md 2）：扫码 / 粘贴配对链接 / 手动输入。
 ///
-/// 用户需求 7：**首次进入不初始化相机、不申请权限**。先给说明与一个
+/// **首次进入不初始化相机、不申请权限**。先给说明与一个
 /// 「开始使用」按钮，用户点了才申请相机权限；被拒给明确提示与重试/去设置
 /// 的入口；授权成功后才真正启动扫码。方式二（粘贴链接）与方式三（手动输入）
 /// 始终可用，不依赖相机。
 ///
-/// 用户需求 D2：页面上是三个并列模块——方式一「扫码」、方式二「粘贴配对链接」、
+/// 页面上是三个并列模块——方式一「扫码」、方式二「粘贴配对链接」、
 /// 方式三「手动输入」；粘贴入口不再塞在扫码模块里。
 ///
 /// 作为初始页使用时传 [onPaired]（成功后回调，由父级切换到主页）；
@@ -54,7 +54,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
   String? _error;
   String? _status;
 
-  /// 扫码是否已启动（用户需求 7：默认 false —— 相机一次都不碰）。
+  /// 扫码是否已启动。
   bool _scanActive = false;
 
   /// 相机权限被拒：给明确的提示 + 重试入口。
@@ -105,7 +105,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
         deviceId: widget.app.repo.deviceId,
         deviceName: 'Android 手机',
         platform: 'android',
-        // M46 第 4 条：报给主机的是**本机真实版本**（主机在「连接设备」里显示它）。
+        // 报给主机的是**本机真实版本**（主机在「连接设备」里显示它）。
         appVersion: kAppVersion,
       ));
       // protocol.md 3.1：ai_configured=false 只提示、不阻止配对。
@@ -117,7 +117,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
         serverName: resp.serverName,
       );
       await widget.app.savePairing(pairing);
-      // 用户反馈 M14 第 5 条：配对成功后一律回到「当前任务」标签。
+      // 配对成功后一律回到「当前任务」标签。
       // 扫码 / 粘贴配对链接 / 手动输入三条路径都在 `_pair` 这里汇合，
       // 所以只写这一处；重点是「设置 → 连接设备」里重新配对的场景——
       // 用户回来时不该还停在设置标签（首次配对进主界面本来就是 0）。
@@ -242,7 +242,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                   icon: Icons.qr_code_scanner,
                   children: [
                     if (!_scanActive) ...[
-                      // 用户需求 7：先说明、后授权，绝不自动调起相机。
+                      // 先说明、后授权，绝不自动调起相机。
                       Text(
                         '点击下面的按钮才会申请相机权限并打开扫码。'
                         '不授权也不影响配对：方式二 / 方式三随时可用。',
@@ -336,7 +336,7 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
-                // 用户需求 D2：「粘贴配对链接」从方式一里拆出来，单独成一个模块，
+                // 「粘贴配对链接」从方式一里拆出来，单独成一个模块，
                 // 与扫码互不遮挡（相机不可用时它就是最快的通路）。
                 SectionCard(
                   title: '方式二：粘贴配对链接',

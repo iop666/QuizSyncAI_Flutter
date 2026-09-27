@@ -42,7 +42,7 @@ class AnalysisOutcome {
   bool get ok => errorCode == null;
 }
 
-/// 从「一张 JPEG 字节」到「结构化题目列表 + 标绿结论」的完整链路（M2 目标）。
+/// 从「一张 JPEG 字节」到「结构化题目列表 + 标绿结论」的完整链路（ 目标）。
 class AnalysisEngine {
   final QuizAiProvider provider;
   final AnalysisCache cache;
@@ -76,7 +76,7 @@ class AnalysisEngine {
         useCache: useCache,
       );
 
-  /// 多页入口（用户需求 4）：一次请求带 1..6 张图片，AI 按页序合并成题。
+  /// 多页入口：一次请求带 1..6 张图片，AI 按页序合并成题。
   ///
   /// 缓存只对**单图**生效：会话级缓存按 `sessions.image_hash`（= 第一页）
   /// 查找，多页组合无法用它区分「首页相同但后续页不同」的两次识别，

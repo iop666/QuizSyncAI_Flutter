@@ -1,6 +1,6 @@
 // 生成与 exe 同目录的《使用说明.txt》。
 //
-// 用户要求：exe 生成时同一文件夹里放一个 txt，简要说明启动命令、配置设置与使用指南。
+// exe 生成时同一文件夹里放一个 txt，简要说明启动命令、配置设置与使用指南。
 //
 // 运行：dart run tool/make_guide.dart build      （目标目录，默认 build）
 import 'dart:convert';

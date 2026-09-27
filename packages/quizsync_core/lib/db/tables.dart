@@ -50,7 +50,7 @@ class Images extends Table {
   List<String> get customConstraints => [];
 }
 
-/// 任务合集（用户需求 8）：一次任务的全部识别记录归入一个合集。
+/// 任务合集：一次任务的全部识别记录归入一个合集。
 /// Windows 首次启动必须新建/选择合集后才能开始任务。
 @TableIndex(name: 'idx_collections_created', columns: {#createdAt})
 @DataClassName('CollectionRow')
@@ -69,7 +69,7 @@ class Collections extends Table {
   Set<Column> get primaryKey => {collectionId};
 }
 
-/// 会话的一页图片（用户需求 4：多页题目一次识别）。
+/// 会话的一页图片。
 @TableIndex(name: 'idx_session_images_session', columns: {#sessionId, #ordinal})
 @DataClassName('SessionImageRow')
 class SessionImages extends Table {
@@ -106,7 +106,7 @@ class Sessions extends Table {
   /// 发起端生成的幂等 id。
   TextColumn get taskId => text().nullable()();
 
-  /// 所属合集（用户需求 8）。历史数据为 NULL，显示为「未分类」。
+  /// 所属合集。历史数据为 NULL，显示为「未分类」。
   TextColumn get collectionId => text().nullable()();
 
   /// 多页识别的**第一页**；页序见 session_images。
@@ -153,7 +153,7 @@ class Questions extends Table {
   TextColumn get questionNo => text().nullable()();
   TextColumn get stem => text()();
 
-  /// 阅读材料 / 文章原文（用户反馈 15）：只有阅读类题目才有，端侧默认折叠。
+  /// 阅读材料 / 文章原文：只有阅读类题目才有，端侧默认折叠。
   /// 空串 = 无附属材料（绝大多数题目）。
   TextColumn get material => text().withDefault(const Constant(''))();
 
@@ -170,10 +170,10 @@ class Questions extends Table {
   BoolColumn get needReview => boolean().withDefault(const Constant(false))();
   BoolColumn get answerInImage => boolean().withDefault(const Constant(false))();
 
-  /// 题目不全（用户需求 2）：题干/选项被截断或缺失，卡片加黄框提示。
+  /// 题目不全：题干/选项被截断或缺失，卡片加黄框提示。
   BoolColumn get incomplete => boolean().withDefault(const Constant(false))();
 
-  /// 答案是 AI 猜测（用户需求 2）：题干在但选项不全时，AI 推断的答案。
+  /// 答案是 AI 猜测：题干在但选项不全时，AI 推断的答案。
   BoolColumn get answerGuessed => boolean().withDefault(const Constant(false))();
   TextColumn get warningsJson =>
       text().map(const StringListConverter()).withDefault(const Constant('[]'))();
@@ -254,7 +254,7 @@ class Tasks extends Table {
   IntColumn get finishedAt => integer().nullable()();
 
   /// 离线入队时记下的额外参数（`{"image_hashes": [...], "collection_id": "..."}`）。
-  /// 多页识别（用户需求 4）与合集（用户需求 8）都必须在断网重连后原样补跑，
+  /// 多页识别与合集都必须在断网重连后原样补跑，
   /// 这两个值没有独立列，统一放这里，避免为一个本地协调表再加两列。
   TextColumn get payloadJson => text().nullable()();
 

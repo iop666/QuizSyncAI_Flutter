@@ -32,7 +32,7 @@ CREATE TABLE images (
 );
 CREATE INDEX idx_images_created ON images(created_at);
 
--- 任务合集（用户需求 8）：一次任务的全部识别记录归入一个合集
+-- 任务合集：一次任务的全部识别记录归入一个合集
 CREATE TABLE collections (
   collection_id TEXT PRIMARY KEY,
   name          TEXT NOT NULL,
@@ -49,7 +49,7 @@ CREATE INDEX idx_collections_created ON collections(created_at DESC);
 CREATE TABLE sessions (
   session_id      TEXT PRIMARY KEY,
   task_id         TEXT,                   -- 发起端生成的幂等 id
-  collection_id   TEXT,                   -- 所属合集；旧数据为 NULL = 未分类（用户需求 8）
+  collection_id   TEXT,                   -- 所属合集；旧数据为 NULL = 未分类
   image_hash      TEXT NOT NULL,          -- 多页时 = 第一页
   source_device   TEXT NOT NULL,
   status          TEXT NOT NULL,          -- queued|analyzing|done|failed|cancelled
@@ -74,7 +74,7 @@ CREATE INDEX idx_sessions_hash ON sessions(image_hash);
 CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_collection ON sessions(collection_id);
 
--- 会话的页图片（用户需求 4：多页题目一次识别）
+-- 会话的页图片
 CREATE TABLE session_images (
   session_image_id TEXT PRIMARY KEY,
   session_id       TEXT NOT NULL,
@@ -96,7 +96,7 @@ CREATE TABLE questions (
   ordinal         INTEGER NOT NULL,       -- 会话内的顺序，0 起
   question_no     TEXT,                   -- 图中题号，可空
   stem            TEXT NOT NULL,
-  material        TEXT NOT NULL DEFAULT '', -- 阅读材料/文章原文，端侧默认折叠（用户反馈 15）
+  material        TEXT NOT NULL DEFAULT '', -- 阅读材料/文章原文，端侧默认折叠
   type            TEXT NOT NULL,          -- single|multi|judge|blank|subjective
   options_json    TEXT NOT NULL DEFAULT '[]',
   choice_json     TEXT NOT NULL DEFAULT '[]',  -- answer.choice
@@ -105,8 +105,8 @@ CREATE TABLE questions (
   confidence      REAL NOT NULL DEFAULT 0.5,
   need_review     INTEGER NOT NULL DEFAULT 0,
   answer_in_image INTEGER NOT NULL DEFAULT 0,
-  incomplete      INTEGER NOT NULL DEFAULT 0,  -- 题目不全（用户需求 2）
-  answer_guessed  INTEGER NOT NULL DEFAULT 0,  -- 答案是 AI 猜测（用户需求 2）
+  incomplete      INTEGER NOT NULL DEFAULT 0,  -- 题目不全
+  answer_guessed  INTEGER NOT NULL DEFAULT 0,  -- 答案是 AI 猜测
   warnings_json   TEXT NOT NULL DEFAULT '[]',
   analysis_edited INTEGER NOT NULL DEFAULT 0,  -- 字段级 user_edited 标记
   answer_edited   INTEGER NOT NULL DEFAULT 0,
@@ -253,7 +253,7 @@ CREATE INDEX idx_usage_called ON ai_usage(called_at);
 ### 2.8 离线队列
 
 - Android 在 Windows 不在线时：图片与文本入库，`tasks.status = 'queued'`，`sessions.status = 'queued'`。
-- 多页与合集归属必须一起入队：`tasks.payload_json` 记 `{"image_hashes":[...],"collection_id":"..."}`，补跑时原样还原（用户需求 4/8）。
+- 多页与合集归属必须一起入队：`tasks.payload_json` 记 `{"image_hashes":[...],"collection_id":"..."}`，补跑时原样还原。
 - Windows 上线（WS 连接建立）后：Android 按 `created_at` 顺序上传图片与创建任务，每个任务单独幂等（`task_id` 已定）。
 - 队列上限：默认 20 条，超出时提示用户并拒绝新任务入队（避免无限堆积）。
 - 任务成功后更新本地会话状态并通知用户。
@@ -277,7 +277,7 @@ CREATE INDEX idx_usage_called ON ai_usage(called_at);
 - 每次改表必须写 `onUpgrade` 迁移，并在 `packages/quizsync_core/test/db/migration_test.dart` 里覆盖「从上一版升级后数据不丢」。
 - 两端共用同一 schema 定义，因此 `schemaVersion` 必须同步递增；Windows 与 Android 的版本不一致时，手机端应在 UI 上提示「主机数据库版本较新/较旧」，而不是直接崩。
 
-### 当前版本：**3**（用户需求 2/4/8 + 用户反馈 15）
+### 当前版本：**3**
 
 v1 → v2 的 `onUpgrade`：
 
@@ -294,13 +294,13 @@ v2 → v3 的 `onUpgrade`：
 
 | 变更 | 说明 |
 |---|---|
-| `ALTER TABLE questions ADD material` | 默认 `''`；阅读类题目的材料（用户反馈 15），旧题目 = 无材料 |
+| `ALTER TABLE questions ADD material` | 默认 `''`；阅读类题目的材料，旧题目 = 无材料 |
 
 全部为**新增表 / 可空列 / 带默认值列**，旧数据不丢（`migration_test.dart` 用真实 v1 文件库断言往返，并断言升级后 `material` 为空）。
 
 ---
 
-## 4. 测试要求（M1 起）
+## 4. 测试要求
 
 1. `sync_ops` 的生成：每次 upsert / delete 都必须恰好产生 1 条 op，字段只含变更项。
 2. Lamport 单调递增；收到较大 lamport 后本地时钟被推高。

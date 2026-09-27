@@ -7,19 +7,19 @@ import '../services/ball_settings.dart';
 import '../services/capture_source.dart';
 import '../state/providers.dart';
 
-/// 「识别模块设置」二级页（用户需求 11）：
+/// 「识别模块设置」二级页：
 /// 安卓端**所有识别相关设置**都在这里——截屏方式、悬浮球（开关/透明度/大小）、
 /// 多页识别页数、权限设置（真实状态 + 跳转）。
 ///
-/// M14 第 7 条：用户要求安卓端不再提供「图片缓存上限」选项，
+/// 安卓端不提供「图片缓存上限」选项：
 /// 本地原图固定只留最近 20 张（见 `kAndroidLocalImageLimit`），故选项目整体移除。
 ///
-/// M19 第 3 条：识别模块是**多绕一圈**的路径（手机截屏 → 局域网 → 电脑 → 第三方
-/// AI → 再传回来），用户要求把这个代价写在设置里，避免以为是本机识别。
+/// 识别模块是**多绕一圈**的路径（手机截屏 → 局域网 → 电脑 → 第三方
+/// AI → 再传回来）把这个代价写在设置里，避免以为是本机识别。
 const kRecognitionSlowNote = '受限于网络延迟与 API 端响应，可能识别时间过长，不建议开启。';
 
 /// 上面那句话的展示条：设置首页的开关与二级页顶部共用同一个组件，
-/// 免得两处文案各自漂移（用户明确要求「安卓识别模块加入说明」）。
+/// 免得两处文案各自漂移。
 class RecognitionSlowNote extends StatelessWidget {
   const RecognitionSlowNote({super.key});
 
@@ -194,8 +194,8 @@ class _RecognitionSettingsPageState
             icon: Icons.filter_none,
             children: [
               Text(
-                // 用户需求 5：明确写出「长按截一张 → 松手 → 再长按下一张 → 最后短按收尾」。
-                // M49：短按只提交已截取的页（不再补截一张），与 Windows 端热键一致。
+                // 明确写出「长按截一张 → 松手 → 再长按下一张 → 最后短按收尾」。
+                // 短按只提交已截取的页（不再补截一张），与 Windows 端热键一致。
                 key: const ValueKey('multipage-help'),
                 '一题多页：「长按」悬浮球截取第 1 张（松手即完成一页）→ 再「长按」截取第 2 张'
                 ' → 以此类推（最多 ${settings.multiPageLimit} 张）→ 最后「短按」悬浮球收尾，'
@@ -269,7 +269,7 @@ class _RecognitionSettingsPageState
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      // 用户需求 6：不点名任何系统/品牌，只给通用说法。
+                      // 不点名任何系统/品牌，只给通用说法。
                       '部分系统需要额外允许「后台运行、自启动」，'
                       '否则悬浮球或截屏服务可能在息屏后被系统回收。',
                       style: theme.textTheme.bodySmall
@@ -410,7 +410,7 @@ class _RecognitionSettingsPageState
       }
     }
     final shown = await CaptureBridgeCalls.setBallVisible(v);
-    // M47：开关要**落库** —— 否则重启或任何一次设置变更都会把球又打开。
+    // 开关要**落库** —— 否则重启或任何一次设置变更都会把球又打开。
     await BallAppearance.saveEnabled(ref.read(androidAppProvider).repo, v);
     if (!mounted) return;
     setState(() => _ballEnabled = v && (shown || !v));
